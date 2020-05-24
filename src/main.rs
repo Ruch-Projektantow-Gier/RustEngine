@@ -11,6 +11,10 @@ fn main() {
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(4, 5);
 
+    // antialiasing
+    gl_attr.set_multisample_buffers(1);
+    gl_attr.set_multisample_samples(8);
+
     let window = video_subsystem
         .window("Game", 900, 700)
         .opengl()
@@ -20,6 +24,10 @@ fn main() {
 
     let _gl_context = window.gl_create_context().unwrap();
     let _gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
+
+    unsafe {
+        gl::Enable(gl::MULTISAMPLE);
+    }
 
     // Verticles
     let vertices: Vec<f32> = vec![
@@ -120,9 +128,9 @@ fn main() {
             }
         }
 
-        unsafe {
-            // gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
+        // unsafe {
+        //     // gl::Clear(gl::COLOR_BUFFER_BIT);
+        // }
 
         window.gl_swap_window();
     }
