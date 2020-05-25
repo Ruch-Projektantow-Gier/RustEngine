@@ -7,6 +7,7 @@ use stb_image::image::LoadResult;
 #[allow(unused_imports)]
 use stb_image::stb_image::bindgen::stbi_load_from_file;
 use std::rc::Rc;
+use std::time::{Duration, SystemTime};
 
 pub mod render_gl;
 
@@ -100,40 +101,6 @@ fn main() {
         LoadResult::ImageF32(_) => {}
     }
 
-    // // vbo
-    // let mut vbo: gl::types::GLuint = 0;
-    // unsafe {
-    //     gl.GenBuffers(1, &mut vbo);
-    // }
-    //
-    // unsafe {
-    //     gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
-    //     gl.BufferData(
-    //         gl::ARRAY_BUFFER,
-    //         (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-    //         vertices.as_ptr() as *const gl::types::GLvoid,
-    //         gl::STATIC_DRAW,
-    //     );
-    //     gl.BindBuffer(gl::ARRAY_BUFFER, 0);
-    // }
-    //
-    // // ebo
-    // let mut ebo: gl::types::GLuint = 0;
-    // unsafe {
-    //     gl.GenBuffers(1, &mut ebo);
-    // }
-    //
-    // unsafe {
-    //     gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-    //     gl.BufferData(
-    //         gl::ELEMENT_ARRAY_BUFFER,
-    //         (indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-    //         indices.as_ptr() as *const gl::types::GLvoid,
-    //         gl::STATIC_DRAW,
-    //     );
-    //     gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-    // }
-
     // vao
     let mut vao: gl::types::GLuint = 0;
     let mut vbo: gl::types::GLuint = 0;
@@ -148,7 +115,6 @@ fn main() {
     unsafe {
         gl.BindVertexArray(vao);
 
-
         gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl.BufferData(
             gl::ARRAY_BUFFER,
@@ -156,7 +122,6 @@ fn main() {
             vertices.as_ptr() as *const gl::types::GLvoid,
             gl::STATIC_DRAW,
         );
-
 
         gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
         gl.BufferData(
@@ -222,26 +187,23 @@ fn main() {
     let shader_program =
         render_gl::Program::from_shaders(&gl, &[vert_shader, frag_shader]).unwrap();
 
-    shader_program.set_used();
-    unsafe {
-        gl.BindTexture(gl::TEXTURE_2D, texture_id);
-        gl.BindVertexArray(vao);
-        // gl.DrawArrays(
-        //     gl::TRIANGLES, // mode
-        //     0,             // starting index in arrays
-        //     6,             // numver of indices to be rendered
-        // )
-        // gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, indices.as_ptr() as *const gl::types::GLvoid);
-        gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
-    }
 
     // unsafe {
     //     gl::Viewport(0, 0, 900, 700);
     //     gl::ClearColor(0.5, 0.5, 0.5, 1.0);
     // }
 
+    let s_per_update = 1.0 / 30.0;
+    let mut previous = SystemTime::now();
+    let mut lag = 0.0;
+
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
+        let current = SystemTime::now();
+        let elapsed = current.duration_since(previous).unwrap();
+        previous = current;
+        lag += elapsed.as_secs_f64();
+
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -249,9 +211,25 @@ fn main() {
             }
         }
 
-        // unsafe {
-        //     // gl::Clear(gl::COLOR_BUFFER_BIT);
-        // }
+        'logic: loop {
+            if lag < s_per_update {
+                break 'logic
+            }
+
+            // update
+            lag -= s_per_update;
+        }
+
+        let _alpha = lag / s_per_update;
+
+        shader_program.set_used();
+        unsafe {
+            gl.Clear(gl::COLOR_BUFFER_BIT);
+
+            gl.BindTexture(gl::TEXTURE_2D, texture_id);
+            gl.BindVertexArray(vao);
+            gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+        }
 
         window.gl_swap_window();
     }
