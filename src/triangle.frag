@@ -11,5 +11,5 @@ out vec4 Color;
 
 void main()
 {
-    Color = vec4(mix(texture(ourTexture, IN.TexCoords).rgb, IN.Color, 0.5), 1.0);
+    Color = vec4(mix(texture(ourTexture, IN.TexCoords).rgb, IN.Color, 0.2), 1.0);
 }

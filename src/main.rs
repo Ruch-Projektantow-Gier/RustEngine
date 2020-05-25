@@ -2,12 +2,10 @@ extern crate sdl2;
 extern crate stb_image;
 
 use gl;
-
 #[allow(unused_imports)]
 use stb_image::image::LoadResult;
 #[allow(unused_imports)]
 use stb_image::stb_image::bindgen::stbi_load_from_file;
-
 use std::rc::Rc;
 
 pub mod render_gl;
@@ -43,9 +41,15 @@ fn main() {
     // Verticles
     let vertices: Vec<f32> = vec![
         // positions      // colors
-        -0.5, -0.5, 0.0, /* */ 1.0, 0.0, 0.0, /* */ 0.0, 0.0, // bottom left corner
-        0.5, -0.5, 0.0, /* */ 0.0, 1.0, 0.0, /* */ 1.0, 0.0, // bottom right corner
-        0.0, 0.5, 0.0, /* */ 0.0, 0.0, 1.0, /* */ 0.5, 1.0, // top center corner
+        0.5, 0.5, 0.0, /* */ 1.0, 0.0, 0.0, /* */ 1.0, 1.0, // top right
+        0.5, -0.5, 0.0, /* */ 0.0, 1.0, 0.0, /* */ 1.0, 0.0, // bottom right
+        -0.5, -0.5, 0.0, /* */ 0.0, 0.0, 1.0, /* */ 0.0, 0.0, // bottom left
+        -0.5, 0.5, 0.0, /* */ 0.5, 0.5, 0.5, /* */ 0.0, 1.0, // top left
+    ];
+
+    let indices: Vec<i32> = vec![
+        0, 1, 3, //
+        1, 2, 3, //
     ];
 
     unsafe {
@@ -96,13 +100,55 @@ fn main() {
         LoadResult::ImageF32(_) => {}
     }
 
-    // vbo
+    // // vbo
+    // let mut vbo: gl::types::GLuint = 0;
+    // unsafe {
+    //     gl.GenBuffers(1, &mut vbo);
+    // }
+    //
+    // unsafe {
+    //     gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
+    //     gl.BufferData(
+    //         gl::ARRAY_BUFFER,
+    //         (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+    //         vertices.as_ptr() as *const gl::types::GLvoid,
+    //         gl::STATIC_DRAW,
+    //     );
+    //     gl.BindBuffer(gl::ARRAY_BUFFER, 0);
+    // }
+    //
+    // // ebo
+    // let mut ebo: gl::types::GLuint = 0;
+    // unsafe {
+    //     gl.GenBuffers(1, &mut ebo);
+    // }
+    //
+    // unsafe {
+    //     gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+    //     gl.BufferData(
+    //         gl::ELEMENT_ARRAY_BUFFER,
+    //         (indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+    //         indices.as_ptr() as *const gl::types::GLvoid,
+    //         gl::STATIC_DRAW,
+    //     );
+    //     gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+    // }
+
+    // vao
+    let mut vao: gl::types::GLuint = 0;
     let mut vbo: gl::types::GLuint = 0;
+    let mut ebo: gl::types::GLuint = 0;
+
     unsafe {
+        gl.GenVertexArrays(1, &mut vao);
         gl.GenBuffers(1, &mut vbo);
+        gl.GenBuffers(1, &mut ebo);
     }
 
     unsafe {
+        gl.BindVertexArray(vao);
+
+
         gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl.BufferData(
             gl::ARRAY_BUFFER,
@@ -110,18 +156,15 @@ fn main() {
             vertices.as_ptr() as *const gl::types::GLvoid,
             gl::STATIC_DRAW,
         );
-        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
-    }
 
-    // vao
-    let mut vao: gl::types::GLuint = 0;
-    unsafe {
-        gl.GenVertexArrays(1, &mut vao);
-    }
 
-    unsafe {
-        gl.BindVertexArray(vao);
-        gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+        gl.BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            (indices.len() * std::mem::size_of::<i32>()) as gl::types::GLsizeiptr,
+            indices.as_ptr() as *const gl::types::GLvoid,
+            gl::STATIC_DRAW,
+        );
 
         // positions
         gl.EnableVertexAttribArray(0);
@@ -156,8 +199,10 @@ fn main() {
             (6 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
         );
 
+        gl.EnableVertexAttribArray(0);
         gl.BindBuffer(gl::ARRAY_BUFFER, 0);
         gl.BindVertexArray(0);
+        // gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
     }
 
     // Shader
@@ -181,12 +226,13 @@ fn main() {
     unsafe {
         gl.BindTexture(gl::TEXTURE_2D, texture_id);
         gl.BindVertexArray(vao);
-        gl.DrawArrays(
-            gl::TRIANGLES, // mode
-            0,             // starting index in arrays
-            3,             // numver of indices to be rendered
-        )
-        // gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+        // gl.DrawArrays(
+        //     gl::TRIANGLES, // mode
+        //     0,             // starting index in arrays
+        //     6,             // numver of indices to be rendered
+        // )
+        // gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, indices.as_ptr() as *const gl::types::GLvoid);
+        gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
     }
 
     // unsafe {
