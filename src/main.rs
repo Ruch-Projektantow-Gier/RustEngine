@@ -1,6 +1,13 @@
 extern crate sdl2;
+extern crate stb_image;
 
 use gl;
+
+#[allow(unused_imports)]
+use stb_image::image::LoadResult;
+#[allow(unused_imports)]
+use stb_image::stb_image::bindgen::stbi_load_from_file;
+
 use std::rc::Rc;
 
 pub mod render_gl;
@@ -35,15 +42,59 @@ fn main() {
 
     // Verticles
     let vertices: Vec<f32> = vec![
-        // positions                // colors
-        -0.5, -0.5, 0.0, 1.0, 0.0, 0.0, 0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0,
+        // positions      // colors
+        -0.5, -0.5, 0.0, /* */ 1.0, 0.0, 0.0, /* */ 0.0, 0.0, // bottom left corner
+        0.5, -0.5, 0.0, /* */ 0.0, 1.0, 0.0, /* */ 1.0, 0.0, // bottom right corner
+        0.0, 0.5, 0.0, /* */ 0.0, 0.0, 1.0, /* */ 0.5, 1.0, // top center corner
     ];
 
-    let texCoords: Vec<f32> = vec![
-        0.0, 0.0, // bottom left corner
-        1.0, 0.0, // bottom right corner
-        0.5, 1.0, // top center corner
-    ];
+    unsafe {
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_WRAP_S,
+            gl::MIRRORED_REPEAT as i32,
+        );
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_WRAP_T,
+            gl::MIRRORED_REPEAT as i32,
+        );
+
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_MIN_FILTER,
+            gl::LINEAR_MIPMAP_LINEAR as i32,
+        );
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+    }
+
+    let texture_load_result = stb_image::image::load("res/wall.jpg");
+    let mut texture_id: u32 = 0;
+
+    match texture_load_result {
+        LoadResult::Error(_) => {}
+        LoadResult::ImageU8(image) => {
+            let texture_image = image;
+
+            unsafe {
+                gl.GenTextures(1, &mut texture_id);
+                gl.BindTexture(gl::TEXTURE_2D, texture_id);
+                gl.TexImage2D(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGB as i32,
+                    texture_image.width as i32,
+                    texture_image.height as i32,
+                    0,
+                    gl::RGB,
+                    gl::UNSIGNED_BYTE,
+                    texture_image.data.as_ptr() as *const gl::types::GLvoid,
+                );
+                gl.GenerateMipmap(gl::TEXTURE_2D);
+            }
+        }
+        LoadResult::ImageF32(_) => {}
+    }
 
     // vbo
     let mut vbo: gl::types::GLuint = 0;
@@ -79,7 +130,7 @@ fn main() {
             3,
             gl::FLOAT,
             gl::FALSE,
-            (6 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
+            (8 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
             std::ptr::null(),                                     // offset of first component
         );
 
@@ -90,8 +141,19 @@ fn main() {
             3,
             gl::FLOAT,                                                    // data-type
             gl::FALSE,                                                    // normalized
-            (6 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
+            (8 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
             (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
+        );
+
+        // texture coords
+        gl.EnableVertexAttribArray(2);
+        gl.VertexAttribPointer(
+            2, // layout (location = 2)
+            2,
+            gl::FLOAT,                                                    // data-type
+            gl::FALSE,                                                    // normalized
+            (8 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
+            (6 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
         );
 
         gl.BindBuffer(gl::ARRAY_BUFFER, 0);
@@ -117,12 +179,14 @@ fn main() {
 
     shader_program.set_used();
     unsafe {
+        gl.BindTexture(gl::TEXTURE_2D, texture_id);
         gl.BindVertexArray(vao);
         gl.DrawArrays(
             gl::TRIANGLES, // mode
             0,             // starting index in arrays
             3,             // numver of indices to be rendered
         )
+        // gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
     }
 
     // unsafe {
