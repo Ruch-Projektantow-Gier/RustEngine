@@ -7,11 +7,16 @@ use stb_image::image::LoadResult;
 #[allow(unused_imports)]
 use stb_image::stb_image::bindgen::stbi_load_from_file;
 use std::rc::Rc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
+
+extern crate nalgebra_glm as glm;
 
 pub mod render_gl;
 
 fn main() {
+    let width = 900;
+    let height = 700;
+
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
 
@@ -24,7 +29,7 @@ fn main() {
     gl_attr.set_multisample_samples(8);
 
     let window = video_subsystem
-        .window("Game", 900, 700)
+        .window("Game", width, height)
         .opengl()
         .resizable()
         .build()
@@ -187,7 +192,6 @@ fn main() {
     let shader_program =
         render_gl::Program::from_shaders(&gl, &[vert_shader, frag_shader]).unwrap();
 
-
     // unsafe {
     //     gl::Viewport(0, 0, 900, 700);
     //     gl::ClearColor(0.5, 0.5, 0.5, 1.0);
@@ -196,6 +200,12 @@ fn main() {
     let s_per_update = 1.0 / 30.0;
     let mut previous = SystemTime::now();
     let mut lag = 0.0;
+
+    let model_name =  CString::new("model").unwrap();
+    let view_name =  CString::new("view").unwrap();
+    let proj_name =  CString::new("projection").unwrap();
+
+    let mut rotation: f32 = 0.0;
 
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
@@ -213,7 +223,7 @@ fn main() {
 
         'logic: loop {
             if lag < s_per_update {
-                break 'logic
+                break 'logic;
             }
 
             // update
@@ -223,11 +233,44 @@ fn main() {
         let _alpha = lag / s_per_update;
 
         shader_program.set_used();
+
+        // matrixes
+
+        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
+        let view = glm::translate(&glm::identity(), &glm::vec3(0., 0., -3.));
+        let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
+
+        rotation += 0.01;
+        model = glm::rotate_x(&model, 90.0);
+        model = glm::rotate_z(&model, rotation);
+
         unsafe {
             gl.Clear(gl::COLOR_BUFFER_BIT);
 
             gl.BindTexture(gl::TEXTURE_2D, texture_id);
             gl.BindVertexArray(vao);
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program.id(), model_name.as_ptr()),
+                1,
+                gl::FALSE,
+                model.as_ptr(),
+            );
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program.id(), view_name.as_ptr()),
+                1,
+                gl::FALSE,
+                view.as_ptr(),
+            );
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program.id(), proj_name.as_ptr()),
+                1,
+                gl::FALSE,
+                proj.as_ptr(),
+            );
+
             gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
         }
 
