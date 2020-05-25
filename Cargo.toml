@@ -4,8 +4,7 @@ version = "0.1.0"
 authors = ["pannoire <maciekolej@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 sdl2 = { version = "0.34.0", features = ["bundled", "static-link"] }
-gl = "0.14.0"
+gl = { path = "lib/gl" }
+glm = "0.2.3"

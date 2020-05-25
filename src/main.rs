@@ -1,5 +1,7 @@
 extern crate sdl2;
-extern crate gl;
+
+use gl;
+use std::rc::Rc;
 
 pub mod render_gl;
 
@@ -23,97 +25,96 @@ fn main() {
         .unwrap();
 
     let _gl_context = window.gl_create_context().unwrap();
-    let _gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
+    let gl: gl::GlPtr  =
+        Rc::new(gl::Gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void));
 
     unsafe {
-        gl::Enable(gl::MULTISAMPLE);
+        gl.Enable(gl::MULTISAMPLE);
     }
 
     // Verticles
     let vertices: Vec<f32> = vec![
-        // positions        // colors
-        -0.5, -0.5, 0.0,    1.0, 0.0, 0.0,
-        0.5, -0.5, 0.0,     0.0, 1.0, 0.0,
-        0.0, 0.5, 0.0,      0.0, 0.0, 1.0,
+        // positions                // colors
+        -0.5,   -0.5,   0.0,        1.0,    0.0,    0.0,
+        0.5,    -0.5,   0.0,        0.0,    1.0,    0.0,
+        0.0,    0.5,    0.0,        0.0,    0.0,    1.0,
     ];
 
     // vbo
     let mut vbo: gl::types::GLuint = 0;
     unsafe {
-        gl::GenBuffers(1, &mut vbo);
+        gl.GenBuffers(1, &mut vbo);
     }
 
     unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::BufferData(
+        gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl.BufferData(
             gl::ARRAY_BUFFER,
             (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
             vertices.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW
+            gl::STATIC_DRAW,
         );
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
     }
 
     // vao
     let mut vao: gl::types::GLuint = 0;
     unsafe {
-        gl::GenVertexArrays(1, &mut vao);
+        gl.GenVertexArrays(1, &mut vao);
     }
 
     unsafe {
-        gl::BindVertexArray(vao);
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl.BindVertexArray(vao);
+        gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
 
         // positions
-        gl::EnableVertexAttribArray(0);
-        gl::VertexAttribPointer(
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(
             0, // layout (location = 0)
             3,
             gl::FLOAT,
             gl::FALSE,
             (6 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
-            std::ptr::null() // offset of first component
+            std::ptr::null(),                                     // offset of first component
         );
 
         // colors
-        gl::EnableVertexAttribArray(1);
-        gl::VertexAttribPointer(
+        gl.EnableVertexAttribArray(1);
+        gl.VertexAttribPointer(
             1, // layout (location = 1)
             3,
-            gl::FLOAT, // data-type
-            gl::FALSE, // normalized
-            (6 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
-            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid // offset
+            gl::FLOAT,                                                    // data-type
+            gl::FALSE,                                                    // normalized
+            (6 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
+            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
         );
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl::BindVertexArray(0);
+        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl.BindVertexArray(0);
     }
 
     // Shader
     use std::ffi::CString;
-    let vert_shader = render_gl::Shader::from_vert_source(
-        &CString::new(include_str!("triangle.vert")).unwrap()
-    ).unwrap();
+    let vert_shader =
+        render_gl::Shader::from_vert_source(&gl, &CString::new(include_str!("triangle.vert")).unwrap())
+            .unwrap();
 
-    let frag_shader = render_gl::Shader::from_frag_source(
-        &CString::new(include_str!("triangle.frag")).unwrap()
-    ).unwrap();
+    let frag_shader =
+        render_gl::Shader::from_frag_source(&gl,&CString::new(include_str!("triangle.frag")).unwrap())
+            .unwrap();
 
-    let shader_program = render_gl::Program::from_shaders(
-        &[vert_shader, frag_shader]
-    ).unwrap();
+    let shader_program = render_gl::Program::from_shaders(&gl,&[vert_shader, frag_shader]).unwrap();
 
     shader_program.set_used();
     unsafe {
-        gl::BindVertexArray(vao);
-        gl::DrawArrays(
+        gl.BindVertexArray(vao);
+        gl.DrawArrays(
             gl::TRIANGLES, // mode
-            0, // starting index in arrays
-            3 // numver of indices to be rendered
+            0,             // starting index in arrays
+            3,             // numver of indices to be rendered
         )
     }
-    
+
     // unsafe {
     //     gl::Viewport(0, 0, 900, 700);
     //     gl::ClearColor(0.5, 0.5, 0.5, 1.0);
@@ -135,4 +136,3 @@ fn main() {
         window.gl_swap_window();
     }
 }
-
