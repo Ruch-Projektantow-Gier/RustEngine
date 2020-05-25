@@ -8,7 +8,11 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn from_source(gl: &gl::GlPtr, source: &CStr, kind: gl::types::GLenum) -> Result<Shader, String> {
+    pub fn from_source(
+        gl: &gl::GlPtr,
+        source: &CStr,
+        kind: gl::types::GLenum,
+    ) -> Result<Shader, String> {
         let id = shader_from_source(gl, source, kind)?;
         Ok(Shader { gl: gl.clone(), id })
     }
@@ -77,7 +81,10 @@ impl Program {
             unsafe { gl.DetachShader(program_id, shader.id()) }
         }
 
-        Ok(Program { gl: gl.clone(), id: program_id })
+        Ok(Program {
+            gl: gl.clone(),
+            id: program_id,
+        })
     }
 
     pub fn set_used(&self) {
@@ -103,7 +110,11 @@ fn create_whitespace_cstring_with_len(len: usize) -> CString {
     return unsafe { CString::from_vec_unchecked(buffer) };
 }
 
-fn shader_from_source(gl: &gl::GlPtr, source: &CStr, kind: gl::types::GLuint) -> Result<gl::types::GLuint, String> {
+fn shader_from_source(
+    gl: &gl::GlPtr,
+    source: &CStr,
+    kind: gl::types::GLuint,
+) -> Result<gl::types::GLuint, String> {
     let id = unsafe { gl.CreateShader(kind) };
 
     unsafe {

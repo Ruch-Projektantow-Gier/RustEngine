@@ -25,8 +25,9 @@ fn main() {
         .unwrap();
 
     let _gl_context = window.gl_create_context().unwrap();
-    let gl: gl::GlPtr  =
-        Rc::new(gl::Gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void));
+    let gl: gl::GlPtr = Rc::new(gl::Gl::load_with(|s| {
+        video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
+    }));
 
     unsafe {
         gl.Enable(gl::MULTISAMPLE);
@@ -35,9 +36,13 @@ fn main() {
     // Verticles
     let vertices: Vec<f32> = vec![
         // positions                // colors
-        -0.5,   -0.5,   0.0,        1.0,    0.0,    0.0,
-        0.5,    -0.5,   0.0,        0.0,    1.0,    0.0,
-        0.0,    0.5,    0.0,        0.0,    0.0,    1.0,
+        -0.5, -0.5, 0.0, 1.0, 0.0, 0.0, 0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0,
+    ];
+
+    let texCoords: Vec<f32> = vec![
+        0.0, 0.0, // bottom left corner
+        1.0, 0.0, // bottom right corner
+        0.5, 1.0, // top center corner
     ];
 
     // vbo
@@ -95,15 +100,20 @@ fn main() {
 
     // Shader
     use std::ffi::CString;
-    let vert_shader =
-        render_gl::Shader::from_vert_source(&gl, &CString::new(include_str!("triangle.vert")).unwrap())
-            .unwrap();
+    let vert_shader = render_gl::Shader::from_vert_source(
+        &gl,
+        &CString::new(include_str!("triangle.vert")).unwrap(),
+    )
+    .unwrap();
 
-    let frag_shader =
-        render_gl::Shader::from_frag_source(&gl,&CString::new(include_str!("triangle.frag")).unwrap())
-            .unwrap();
+    let frag_shader = render_gl::Shader::from_frag_source(
+        &gl,
+        &CString::new(include_str!("triangle.frag")).unwrap(),
+    )
+    .unwrap();
 
-    let shader_program = render_gl::Program::from_shaders(&gl,&[vert_shader, frag_shader]).unwrap();
+    let shader_program =
+        render_gl::Program::from_shaders(&gl, &[vert_shader, frag_shader]).unwrap();
 
     shader_program.set_used();
     unsafe {
