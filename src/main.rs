@@ -45,18 +45,64 @@ fn main() {
     }
 
     // Verticles
+    // plane
+    // let vertices: Vec<f32> = vec![
+    //     // positions      // colors
+    //     0.5, 0.5, 0.0, /* */ 1.0, 0.0, 0.0, /* */ 1.0, 1.0, // top right
+    //     0.5, -0.5, 0.0, /* */ 0.0, 1.0, 0.0, /* */ 1.0, 0.0, // bottom right
+    //     -0.5, -0.5, 0.0, /* */ 0.0, 0.0, 1.0, /* */ 0.0, 0.0, // bottom left
+    //     -0.5, 0.5, 0.0, /* */ 0.5, 0.5, 0.5, /* */ 0.0, 1.0, // top left
+    // ];
+
+    // cube
     let vertices: Vec<f32> = vec![
-        // positions      // colors
-        0.5, 0.5, 0.0, /* */ 1.0, 0.0, 0.0, /* */ 1.0, 1.0, // top right
-        0.5, -0.5, 0.0, /* */ 0.0, 1.0, 0.0, /* */ 1.0, 0.0, // bottom right
-        -0.5, -0.5, 0.0, /* */ 0.0, 0.0, 1.0, /* */ 0.0, 0.0, // bottom left
-        -0.5, 0.5, 0.0, /* */ 0.5, 0.5, 0.5, /* */ 0.0, 1.0, // top left
+        -0.5, -0.5, -0.5,/* */  0.0, 0.0, //
+        0.5, -0.5, -0.5,/* */  1.0, 0.0, //
+        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
+        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
+        -0.5,  0.5, -0.5,/* */  0.0, 1.0, //
+        -0.5, -0.5, -0.5,/* */  0.0, 0.0, //
+
+        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
+        0.5, -0.5,  0.5,/* */  1.0, 0.0, //
+        0.5,  0.5,  0.5,/* */  1.0, 1.0, //
+        0.5,  0.5,  0.5,/* */  1.0, 1.0, //
+        -0.5,  0.5,  0.5,/* */  0.0, 1.0, //
+        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
+
+        -0.5,  0.5,  0.5,/* */  1.0, 0.0, //
+        -0.5,  0.5, -0.5,/* */  1.0, 1.0, //
+        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
+        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
+        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
+        -0.5,  0.5,  0.5,/* */  1.0, 0.0, //
+
+        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
+        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
+        0.5, -0.5, -0.5,/* */  0.0, 1.0, //
+        0.5, -0.5, -0.5,/* */  0.0, 1.0, //
+        0.5, -0.5,  0.5,/* */  0.0, 0.0, //
+        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
+
+        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
+        0.5, -0.5, -0.5,/* */  1.0, 1.0, //
+        0.5, -0.5,  0.5,/* */  1.0, 0.0, //
+        0.5, -0.5,  0.5,/* */  1.0, 0.0, //
+        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
+        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
+
+        -0.5,  0.5, -0.5,/* */  0.0, 1.0, //
+        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
+        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
+        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
+        -0.5,  0.5,  0.5,/* */  0.0, 0.0, //
+        -0.5,  0.5, -0.5,/* */  0.0, 1.0 //
     ];
 
-    let indices: Vec<i32> = vec![
-        0, 1, 3, //
-        1, 2, 3, //
-    ];
+    // let indices: Vec<i32> = vec![
+    //     0, 1, 3, //
+    //     1, 2, 3, //
+    // ];
 
     unsafe {
         gl.TexParameteri(
@@ -128,13 +174,13 @@ fn main() {
             gl::STATIC_DRAW,
         );
 
-        gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-        gl.BufferData(
-            gl::ELEMENT_ARRAY_BUFFER,
-            (indices.len() * std::mem::size_of::<i32>()) as gl::types::GLsizeiptr,
-            indices.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW,
-        );
+        // gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+        // gl.BufferData(
+        //     gl::ELEMENT_ARRAY_BUFFER,
+        //     (indices.len() * std::mem::size_of::<i32>()) as gl::types::GLsizeiptr,
+        //     indices.as_ptr() as *const gl::types::GLvoid,
+        //     gl::STATIC_DRAW,
+        // );
 
         // positions
         gl.EnableVertexAttribArray(0);
@@ -143,20 +189,20 @@ fn main() {
             3,
             gl::FLOAT,
             gl::FALSE,
-            (8 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
+            (5 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
             std::ptr::null(),                                     // offset of first component
         );
 
-        // colors
-        gl.EnableVertexAttribArray(1);
-        gl.VertexAttribPointer(
-            1, // layout (location = 1)
-            3,
-            gl::FLOAT,                                                    // data-type
-            gl::FALSE,                                                    // normalized
-            (8 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
-            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
-        );
+        // // colors
+        // gl.EnableVertexAttribArray(1);
+        // gl.VertexAttribPointer(
+        //     1, // layout (location = 1)
+        //     3,
+        //     gl::FLOAT,                                                    // data-type
+        //     gl::FALSE,                                                    // normalized
+        //     (8 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
+        //     (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
+        // );
 
         // texture coords
         gl.EnableVertexAttribArray(2);
@@ -165,14 +211,16 @@ fn main() {
             2,
             gl::FLOAT,                                                    // data-type
             gl::FALSE,                                                    // normalized
-            (8 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
-            (6 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
+            (5 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
+            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
         );
 
         gl.EnableVertexAttribArray(0);
         gl.BindBuffer(gl::ARRAY_BUFFER, 0);
         gl.BindVertexArray(0);
         // gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+
+        gl.Enable(gl::DEPTH_TEST);
     }
 
     // Shader
@@ -236,26 +284,22 @@ fn main() {
 
         // matrixes
 
-        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
-        let view = glm::translate(&glm::identity(), &glm::vec3(0., 0., -3.));
+        let mut model = glm::translate(&glm::identity(), &glm::vec3(-3., 0., 0.));
+        let mut view = glm::translate(&glm::identity(), &glm::vec3(0., 0., 3.));
+        view = glm::rotate_y(&view, 45.0);
+        view = glm::translate(&view, &glm::vec3(7., 0., -4.));
         let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
 
         rotation += 0.01;
         model = glm::rotate_x(&model, 90.0);
-        model = glm::rotate_z(&model, rotation);
+        // model = glm::rotate_y(&model, rotation);
 
         unsafe {
-            gl.Clear(gl::COLOR_BUFFER_BIT);
+            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             gl.BindTexture(gl::TEXTURE_2D, texture_id);
             gl.BindVertexArray(vao);
 
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program.id(), model_name.as_ptr()),
-                1,
-                gl::FALSE,
-                model.as_ptr(),
-            );
 
             gl.UniformMatrix4fv(
                 gl.GetUniformLocation(shader_program.id(), view_name.as_ptr()),
@@ -271,7 +315,26 @@ fn main() {
                 proj.as_ptr(),
             );
 
-            gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+            // gl.DrawElements(gl::TRIANGLES, 36, gl::UNSIGNED_INT, std::ptr::null());
+            let mut i = 0;
+            loop {
+                i += 1;
+
+                model = glm::translate(&model, &glm::vec3(1.5, 0.0, 0.0));
+
+                gl.UniformMatrix4fv(
+                    gl.GetUniformLocation(shader_program.id(), model_name.as_ptr()),
+                    1,
+                    gl::FALSE,
+                    model.as_ptr(),
+                );
+
+                gl.DrawArrays(gl::TRIANGLES,0, 36);
+
+                if i > 6 {
+                    break;
+                }
+            }
         }
 
         window.gl_swap_window();
