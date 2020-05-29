@@ -20,6 +20,8 @@ fn main() {
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
 
+    sdl.mouse().capture(true);
+
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(4, 5);
@@ -56,47 +58,42 @@ fn main() {
 
     // cube
     let vertices: Vec<f32> = vec![
-        -0.5, -0.5, -0.5,/* */  0.0, 0.0, //
-        0.5, -0.5, -0.5,/* */  1.0, 0.0, //
-        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
-        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
-        -0.5,  0.5, -0.5,/* */  0.0, 1.0, //
-        -0.5, -0.5, -0.5,/* */  0.0, 0.0, //
-
-        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
-        0.5, -0.5,  0.5,/* */  1.0, 0.0, //
-        0.5,  0.5,  0.5,/* */  1.0, 1.0, //
-        0.5,  0.5,  0.5,/* */  1.0, 1.0, //
-        -0.5,  0.5,  0.5,/* */  0.0, 1.0, //
-        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
-
-        -0.5,  0.5,  0.5,/* */  1.0, 0.0, //
-        -0.5,  0.5, -0.5,/* */  1.0, 1.0, //
-        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
-        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
-        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
-        -0.5,  0.5,  0.5,/* */  1.0, 0.0, //
-
-        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
-        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
-        0.5, -0.5, -0.5,/* */  0.0, 1.0, //
-        0.5, -0.5, -0.5,/* */  0.0, 1.0, //
-        0.5, -0.5,  0.5,/* */  0.0, 0.0, //
-        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
-
-        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
-        0.5, -0.5, -0.5,/* */  1.0, 1.0, //
-        0.5, -0.5,  0.5,/* */  1.0, 0.0, //
-        0.5, -0.5,  0.5,/* */  1.0, 0.0, //
-        -0.5, -0.5,  0.5,/* */  0.0, 0.0, //
-        -0.5, -0.5, -0.5,/* */  0.0, 1.0, //
-
-        -0.5,  0.5, -0.5,/* */  0.0, 1.0, //
-        0.5,  0.5, -0.5,/* */  1.0, 1.0, //
-        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
-        0.5,  0.5,  0.5,/* */  1.0, 0.0, //
-        -0.5,  0.5,  0.5,/* */  0.0, 0.0, //
-        -0.5,  0.5, -0.5,/* */  0.0, 1.0 //
+        -0.5, -0.5, -0.5, /* */ 0.0, 0.0, //
+        0.5, -0.5, -0.5, /* */ 1.0, 0.0, //
+        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
+        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
+        -0.5, 0.5, -0.5, /* */ 0.0, 1.0, //
+        -0.5, -0.5, -0.5, /* */ 0.0, 0.0, //
+        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
+        0.5, -0.5, 0.5, /* */ 1.0, 0.0, //
+        0.5, 0.5, 0.5, /* */ 1.0, 1.0, //
+        0.5, 0.5, 0.5, /* */ 1.0, 1.0, //
+        -0.5, 0.5, 0.5, /* */ 0.0, 1.0, //
+        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
+        -0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
+        -0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
+        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
+        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
+        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
+        -0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
+        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
+        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
+        0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
+        0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
+        0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
+        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
+        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
+        0.5, -0.5, -0.5, /* */ 1.0, 1.0, //
+        0.5, -0.5, 0.5, /* */ 1.0, 0.0, //
+        0.5, -0.5, 0.5, /* */ 1.0, 0.0, //
+        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
+        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
+        -0.5, 0.5, -0.5, /* */ 0.0, 1.0, //
+        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
+        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
+        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
+        -0.5, 0.5, 0.5, /* */ 0.0, 0.0, //
+        -0.5, 0.5, -0.5, /* */ 0.0, 1.0, //
     ];
 
     // let indices: Vec<i32> = vec![
@@ -249,11 +246,26 @@ fn main() {
     let mut previous = SystemTime::now();
     let mut lag = 0.0;
 
-    let model_name =  CString::new("model").unwrap();
-    let view_name =  CString::new("view").unwrap();
-    let proj_name =  CString::new("projection").unwrap();
+    let model_name = CString::new("model").unwrap();
+    let view_name = CString::new("view").unwrap();
+    let proj_name = CString::new("projection").unwrap();
 
     let mut rotation: f32 = 0.0;
+
+    let camera_speed = 0.1;
+    let mut camera_pos = glm::vec3(0., 0., 3.);
+    let mut camera_front = glm::vec3(0., 0., -1.);
+    let mut camera_up = glm::vec3(0., 1., 0.);
+    let mut camera_movement = glm::vec2(0, 0);
+
+    let mut last_cursor_coords = glm::vec2(0 as i32, 0 as i32);
+
+    let mut cam_sensitive = 0.1;
+    let mut yaw = 0.0; // y
+    let mut pitch = 0.0; // x
+                         // roll is on z
+
+    let mut is_camera_movement = false;
 
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
@@ -265,6 +277,114 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::D),
+                    ..
+                } => {
+                    camera_movement[0] = 1;
+                }
+                sdl2::event::Event::KeyUp {
+                    keycode: Some(sdl2::keyboard::Keycode::D),
+                    ..
+                } => {
+                    if camera_movement[0] == 1 {
+                        camera_movement[0] = 0;
+                    }
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::A),
+                    ..
+                } => {
+                    camera_movement[0] = -1;
+                }
+                sdl2::event::Event::KeyUp {
+                    keycode: Some(sdl2::keyboard::Keycode::A),
+                    ..
+                } => {
+                    if camera_movement[0] == -1 {
+                        camera_movement[0] = 0;
+                    }
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::W),
+                    ..
+                } => {
+                    camera_movement[1] = 1;
+                }
+                sdl2::event::Event::KeyUp {
+                    keycode: Some(sdl2::keyboard::Keycode::W),
+                    ..
+                } => {
+                    if camera_movement[1] == 1 {
+                        camera_movement[1] = 0;
+                    }
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::S),
+                    ..
+                } => {
+                    camera_movement[1] = -1;
+                }
+                sdl2::event::Event::KeyUp {
+                    keycode: Some(sdl2::keyboard::Keycode::S),
+                    ..
+                } => {
+                    if camera_movement[1] == -1 {
+                        camera_movement[1] = 0;
+                    }
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::Space),
+                    ..
+                } => {
+                    camera_pos += &camera_up * camera_speed;
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::LCtrl),
+                    ..
+                } => {
+                    camera_pos -= &camera_up * camera_speed;
+                }
+                sdl2::event::Event::MouseButtonDown {
+                    mouse_btn: sdl2::mouse::MouseButton::Right,
+                    x,
+                    y,
+                    ..
+                } => {
+                    // sdl.mouse().show_cursor(false);
+                    is_camera_movement = true;
+                    last_cursor_coords = glm::vec2(x, y);
+                }
+                sdl2::event::Event::MouseButtonUp {
+                    mouse_btn: sdl2::mouse::MouseButton::Right,
+                    ..
+                } => {
+                    // sdl.mouse().show_cursor(true);
+                    is_camera_movement = false;
+                }
+                sdl2::event::Event::MouseMotion { x, y, .. } => {
+                    if is_camera_movement {
+                        let x_offset = x - last_cursor_coords[0];
+                        let y_offset = last_cursor_coords[1] - y;
+
+                        last_cursor_coords = glm::vec2(x, y);
+
+                        yaw += cam_sensitive * x_offset as f32;
+                        pitch += cam_sensitive * y_offset as f32;
+
+                        if pitch.abs() > 89.0 {
+                            pitch = pitch.signum() * 89.0;
+                        }
+
+                        let direction = glm::vec3(
+                            yaw.to_radians().cos() * pitch.to_radians().cos(),
+                            pitch.to_radians().sin(),
+                            yaw.to_radians().sin() * pitch.to_radians().cos(),
+                        );
+
+                        camera_front = direction.normalize();
+                    }
+                }
                 _ => {}
             }
         }
@@ -273,6 +393,11 @@ fn main() {
             if lag < s_per_update {
                 break 'logic;
             }
+
+            camera_pos += glm::normalize(&glm::cross(&camera_front, &camera_up))
+                * camera_speed
+                * camera_movement[0] as f32;
+            camera_pos += &camera_front * camera_speed * camera_movement[1] as f32;
 
             // update
             lag -= s_per_update;
@@ -283,15 +408,15 @@ fn main() {
         shader_program.set_used();
 
         // matrixes
-
-        let mut model = glm::translate(&glm::identity(), &glm::vec3(-3., 0., 0.));
-        let mut view = glm::translate(&glm::identity(), &glm::vec3(0., 0., 3.));
-        view = glm::rotate_y(&view, 45.0);
-        view = glm::translate(&view, &glm::vec3(7., 0., -4.));
+        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., -3.));
+        // let mut view = glm::translate(&glm::identity(), &glm::vec3(0., 0., -1.));
+        let mut view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
+        //view = glm::rotate_y(&view, 45.0);
+        //view = glm::translate(&view, &glm::vec3(7., 0., -4.));
         let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
 
-        rotation += 0.01;
-        model = glm::rotate_x(&model, 90.0);
+        //rotation += 0.01;
+        //model = glm::rotate_x(&model, 90.0);
         // model = glm::rotate_y(&model, rotation);
 
         unsafe {
@@ -299,7 +424,6 @@ fn main() {
 
             gl.BindTexture(gl::TEXTURE_2D, texture_id);
             gl.BindVertexArray(vao);
-
 
             gl.UniformMatrix4fv(
                 gl.GetUniformLocation(shader_program.id(), view_name.as_ptr()),
@@ -329,7 +453,7 @@ fn main() {
                     model.as_ptr(),
                 );
 
-                gl.DrawArrays(gl::TRIANGLES,0, 36);
+                gl.DrawArrays(gl::TRIANGLES, 0, 36);
 
                 if i > 6 {
                     break;
