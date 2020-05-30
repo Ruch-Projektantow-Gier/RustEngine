@@ -1,7 +1,9 @@
+extern crate nalgebra_glm as glm;
 extern crate sdl2;
 extern crate stb_image;
 
 use gl;
+
 #[allow(unused_imports)]
 use stb_image::image::LoadResult;
 #[allow(unused_imports)]
@@ -9,9 +11,23 @@ use stb_image::stb_image::bindgen::stbi_load_from_file;
 use std::rc::Rc;
 use std::time::SystemTime;
 
-extern crate nalgebra_glm as glm;
-
+mod cube;
 pub mod render_gl;
+
+pub trait FromVec<T> {
+    fn from_vec4(x: &glm::Vec3, y: &glm::Vec3, z: &glm::Vec3, origin: &glm::Vec3) -> T;
+}
+
+impl FromVec<glm::Mat4> for glm::Mat4 {
+    fn from_vec4(x: &glm::Vec3, y: &glm::Vec3, z: &glm::Vec3, origin: &glm::Vec3) -> glm::Mat4 {
+        glm::mat4(
+            x[0], y[0], z[0], origin[0], //
+            x[1], y[1], z[1], origin[1], //
+            x[2], y[2], z[2], origin[2], //
+            0., 0., 0., 1., //
+        )
+    }
+}
 
 fn main() {
     let width = 900;
@@ -55,6 +71,50 @@ fn main() {
     //     -0.5, -0.5, 0.0, /* */ 0.0, 0.0, 1.0, /* */ 0.0, 0.0, // bottom left
     //     -0.5, 0.5, 0.0, /* */ 0.5, 0.5, 0.5, /* */ 0.0, 1.0, // top left
     // ];
+
+    // line
+    let line: Vec<f32> = vec![
+        0., 0., 0., //
+        0., 0., 1.,
+    ];
+
+    // vao
+    let mut vaoLine: gl::types::GLuint = 0;
+    let mut vboLine: gl::types::GLuint = 0;
+
+    unsafe {
+        gl.GenVertexArrays(1, &mut vaoLine);
+        gl.GenBuffers(1, &mut vboLine);
+    }
+
+    unsafe {
+        gl.BindVertexArray(vaoLine);
+
+        gl.BindBuffer(gl::ARRAY_BUFFER, vboLine);
+        gl.BufferData(
+            gl::ARRAY_BUFFER,
+            (line.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+            line.as_ptr() as *const gl::types::GLvoid,
+            gl::STATIC_DRAW,
+        );
+
+        // positions
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(
+            0, // layout (location = 0)
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            (3 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
+            std::ptr::null(),                                     // offset of first component
+        );
+
+        gl.EnableVertexAttribArray(0);
+        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl.BindVertexArray(0);
+
+        gl.Enable(gl::DEPTH_TEST);
+    }
 
     // cube
     let vertices: Vec<f32> = vec![
@@ -149,6 +209,12 @@ fn main() {
         LoadResult::ImageF32(_) => {}
     }
 
+    // anisotropic
+    let mut filtering: f32 = 0.;
+    unsafe {
+        gl.GetFloatv(gl::MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut filtering);
+    }
+
     // vao
     let mut vao: gl::types::GLuint = 0;
     let mut vbo: gl::types::GLuint = 0;
@@ -237,10 +303,24 @@ fn main() {
     let shader_program =
         render_gl::Program::from_shaders(&gl, &[vert_shader, frag_shader]).unwrap();
 
+    // Shader Line
+    let vert_shader_line =
+        render_gl::Shader::from_vert_source(&gl, &CString::new(include_str!("ray.vert")).unwrap())
+            .unwrap();
+
+    let frag_shader_line =
+        render_gl::Shader::from_frag_source(&gl, &CString::new(include_str!("ray.frag")).unwrap())
+            .unwrap();
+
+    let shader_program_line =
+        render_gl::Program::from_shaders(&gl, &[vert_shader_line, frag_shader_line]).unwrap();
+
     // unsafe {
     //     gl::Viewport(0, 0, 900, 700);
     //     gl::ClearColor(0.5, 0.5, 0.5, 1.0);
     // }
+
+    // let cube = cube::Cube::new(0, 0, 0);
 
     let s_per_update = 1.0 / 30.0;
     let mut previous = SystemTime::now();
@@ -253,7 +333,7 @@ fn main() {
     let mut rotation: f32 = 0.0;
 
     let camera_speed = 0.1;
-    let mut camera_pos = glm::vec3(0., 0., 3.);
+    let mut camera_pos = glm::vec3(0., 0., 1.);
     let mut camera_front = glm::vec3(0., 0., -1.);
     let mut camera_up = glm::vec3(0., 1., 0.);
     let mut camera_movement = glm::vec2(0, 0);
@@ -408,7 +488,7 @@ fn main() {
         shader_program.set_used();
 
         // matrixes
-        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., -3.));
+        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
         // let mut view = glm::translate(&glm::identity(), &glm::vec3(0., 0., -1.));
         let mut view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
         //view = glm::rotate_y(&view, 45.0);
@@ -422,7 +502,10 @@ fn main() {
         unsafe {
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
+            // cubes
             gl.BindTexture(gl::TEXTURE_2D, texture_id);
+            gl.TexParameterf(gl::TEXTURE_2D, gl::TEXTURE_MAX_ANISOTROPY_EXT, filtering);
+
             gl.BindVertexArray(vao);
 
             gl.UniformMatrix4fv(
@@ -444,7 +527,7 @@ fn main() {
             loop {
                 i += 1;
 
-                model = glm::translate(&model, &glm::vec3(1.5, 0.0, 0.0));
+                // model = glm::translate(&glm::identity(), &glm::vec3(i as f32 * 1.0, 0.0, 0.0));
 
                 gl.UniformMatrix4fv(
                     gl.GetUniformLocation(shader_program.id(), model_name.as_ptr()),
@@ -453,12 +536,81 @@ fn main() {
                     model.as_ptr(),
                 );
 
+                // gl.DrawArrays(gl::LINE_STRIP_ADJACENCY, 0, 36);
                 gl.DrawArrays(gl::TRIANGLES, 0, 36);
 
-                if i > 6 {
+                if i > 0 {
                     break;
                 }
             }
+
+            // line
+            shader_program_line.set_used();
+
+            gl.LineWidth(4.0);
+            gl.BindVertexArray(vaoLine);
+
+            let line_origin = &glm::vec3(0.5, 0.5, 0.5);
+            let line_dest = &glm::vec3(-0.5, -0.5, 0.5);
+
+            let new_z = (line_dest - line_origin).normalize();
+            let mut new_y = glm::cross(&new_z, &glm::vec3(0., 0., 1.));
+
+            if new_y.magnitude() < glm::epsilon() {
+                new_y = glm::vec3(0., 1., 0.);
+            }
+
+            let new_x = glm::cross(&new_z, &new_y).normalize();
+            {
+                let x = new_x;
+                let y = new_y;
+                let z = new_z;
+                let origin = line_origin;
+                let length = (line_dest - line_origin).magnitude();
+
+                model = glm::mat4(
+                    x[0] * length,
+                    y[0] * length,
+                    z[0] * length,
+                    origin[0], //
+                    x[1] * length,
+                    y[1] * length,
+                    z[1] * length,
+                    origin[1], //
+                    x[2] * length,
+                    y[2] * length,
+                    z[2] * length,
+                    origin[2], //
+                    0.,
+                    0.,
+                    0.,
+                    1., //
+                );
+            }
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program_line.id(), view_name.as_ptr()),
+                1,
+                gl::FALSE,
+                view.as_ptr(),
+            );
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program_line.id(), proj_name.as_ptr()),
+                1,
+                gl::FALSE,
+                proj.as_ptr(),
+            );
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program_line.id(), model_name.as_ptr()),
+                1,
+                gl::FALSE,
+                model.as_ptr(),
+            );
+
+            gl.DrawArrays(gl::LINES, 0, 2);
+            gl.BindVertexArray(0);
         }
 
         window.gl_swap_window();

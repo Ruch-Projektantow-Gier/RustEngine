@@ -1438,6 +1438,8 @@ pub const MAX_TEXTURE_IMAGE_UNITS: types::GLenum = 0x8872;
 #[allow(dead_code, non_upper_case_globals)]
 pub const MAX_TEXTURE_LOD_BIAS: types::GLenum = 0x84FD;
 #[allow(dead_code, non_upper_case_globals)]
+pub const MAX_TEXTURE_MAX_ANISOTROPY_EXT: types::GLenum = 0x84FF;
+#[allow(dead_code, non_upper_case_globals)]
 pub const MAX_TEXTURE_SIZE: types::GLenum = 0x0D33;
 #[allow(dead_code, non_upper_case_globals)]
 pub const MAX_TRANSFORM_FEEDBACK_BUFFERS: types::GLenum = 0x8E70;
@@ -2417,6 +2419,8 @@ pub const TEXTURE_INTERNAL_FORMAT: types::GLenum = 0x1003;
 pub const TEXTURE_LOD_BIAS: types::GLenum = 0x8501;
 #[allow(dead_code, non_upper_case_globals)]
 pub const TEXTURE_MAG_FILTER: types::GLenum = 0x2800;
+#[allow(dead_code, non_upper_case_globals)]
+pub const TEXTURE_MAX_ANISOTROPY_EXT: types::GLenum = 0x84FE;
 #[allow(dead_code, non_upper_case_globals)]
 pub const TEXTURE_MAX_LEVEL: types::GLenum = 0x813D;
 #[allow(dead_code, non_upper_case_globals)]
