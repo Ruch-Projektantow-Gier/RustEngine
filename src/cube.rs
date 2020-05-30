@@ -13,20 +13,20 @@ pub struct Cube {
 
 pub struct Ray {
     origin: Vec3f, // min = origin - HALF_CUBE, max = origin + HALF_CUBE
-    inv_dir: Vec3f,
+    dir: Vec3f,
 }
 
 impl Ray {
-    pub fn new(origin: Vec3f, dir: Vec3f) -> Ray {
+    pub fn new(origin: &Vec3f, dir: &Vec3f) -> Ray {
         Ray {
-            origin,
-            inv_dir: dir * -1.,
+            origin: origin.clone(),
+            dir: dir.clone(),
         }
     }
 }
 
 impl Cube {
-    pub fn new(origin: Vec3f) -> Cube {
+    pub fn new(origin: &Vec3f) -> Cube {
         let half_cube = glm::vec3(1., 1., 1.) * CUBE_HALF_SIZE;
         let origin_f = origin * CUBE_SIZE;
 
@@ -38,16 +38,43 @@ impl Cube {
     }
 
     pub fn is_intersect(&self, ray: &Ray) -> bool {
-        let mut tmin = f32::INFINITY;
+        let mut tmin = -f32::INFINITY;
         let mut tmax = f32::INFINITY;
 
-        for i in 0..=3 {
-            let t1: f32 = (self.min[i] - ray.origin[i]) * ray.inv_dir[i];
-            let t2: f32 = (self.max[i] - ray.origin[i]) * ray.inv_dir[i];
+        // println!(
+        //     "cube: origin: {} {} {}, max: {} {} {}, min: {} {} {}",
+        //     self.origin[0],
+        //     self.origin[1],
+        //     self.origin[2],
+        //     self.max[0],
+        //     self.max[1],
+        //     self.max[2],
+        //     self.min[0],
+        //     self.min[1],
+        //     self.min[2],
+        // );
+        //
+        // println!(
+        //     "ray: origin: {} {} {}, inv_dir: {} {} {}",
+        //     ray.origin[0],
+        //     ray.origin[1],
+        //     ray.origin[2],
+        //     ray.inv_dir[0],
+        //     ray.inv_dir[1],
+        //     ray.inv_dir[2],
+        // );
+
+        let inv_dir = glm::vec3(1.0 / ray.dir[0], 1.0 / ray.dir[1], 1.0 / ray.dir[2]);
+
+        for i in 0..3 {
+            let t1: f32 = (self.min[i] - ray.origin[i]) * inv_dir[i];
+            let t2: f32 = (self.max[i] - ray.origin[i]) * inv_dir[i];
 
             tmin = t1.min(t2).max(tmin);
             tmax = t1.max(t2).min(tmax);
         }
+
+        // println!("tmin: {}, tmax: {}", tmin, tmax);
 
         tmax > tmin.max(0.)
     }

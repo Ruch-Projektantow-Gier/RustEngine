@@ -1,8 +1,10 @@
+extern crate imgui;
 extern crate nalgebra_glm as glm;
 extern crate sdl2;
 extern crate stb_image;
 
 use gl;
+use imgui::*;
 
 #[allow(unused_imports)]
 use stb_image::image::LoadResult;
@@ -344,8 +346,23 @@ fn main() {
     let mut yaw = 0.0; // y
     let mut pitch = 0.0; // x
                          // roll is on z
-
     let mut is_camera_movement = false;
+
+    // Imgui
+    // let mut ui = Context::create();
+    // Window::new(im_str!("Hello world"))
+    //     .size([300.0, 110.0], Condition::FirstUseEver)
+    //     .build(ui, || {
+    //         ui.text(im_str!("Hello world!"));
+    //         ui.text(im_str!("こんにちは世界！"));
+    //         ui.text(im_str!("This...is...imgui-rs!"));
+    //         ui.separator();
+    //         let mouse_pos = ui.io().mouse_pos;
+    //         ui.text(format!(
+    //             "Mouse Position: ({:.1},{:.1})",
+    //             mouse_pos[0], mouse_pos[1]
+    //         ));
+    //     });
 
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
@@ -550,8 +567,11 @@ fn main() {
             gl.LineWidth(4.0);
             gl.BindVertexArray(vaoLine);
 
-            let line_origin = &glm::vec3(0.5, 0.5, 0.5);
-            let line_dest = &glm::vec3(-0.5, -0.5, 0.5);
+            // let line_origin = &glm::vec3(0.7, 0., 0.);
+            // let line_dest = &glm::vec3(0.6, 0., 0.);
+
+            let line_origin = &(&camera_pos - &camera_front + &glm::vec3(0., -0.1, 0.));
+            let line_dest = &(&camera_pos + &camera_front * 3.);
 
             let new_z = (line_dest - line_origin).normalize();
             let mut new_y = glm::cross(&new_z, &glm::vec3(0., 0., 1.));
@@ -586,6 +606,14 @@ fn main() {
                     0.,
                     1., //
                 );
+            }
+
+            let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
+            let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
+
+            let is_intersect = cube.is_intersect(&ray);
+            if is_intersect {
+                println!("{}", is_intersect);
             }
 
             gl.UniformMatrix4fv(
