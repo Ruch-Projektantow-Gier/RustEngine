@@ -502,75 +502,27 @@ fn main() {
 
         let _alpha = lag / s_per_update;
 
-        shader_program.set_used();
-
-        // matrixes
-        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
-        // let mut view = glm::translate(&glm::identity(), &glm::vec3(0., 0., -1.));
-        let mut view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
-        //view = glm::rotate_y(&view, 45.0);
-        //view = glm::translate(&view, &glm::vec3(7., 0., -4.));
-        let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
-
-        //rotation += 0.01;
-        //model = glm::rotate_x(&model, 90.0);
-        // model = glm::rotate_y(&model, rotation);
-
         unsafe {
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
 
-            // cubes
-            gl.BindTexture(gl::TEXTURE_2D, texture_id);
-            gl.TexParameterf(gl::TEXTURE_2D, gl::TEXTURE_MAX_ANISOTROPY_EXT, filtering);
+        // MATRIXES
+        let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
+        let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
 
-            gl.BindVertexArray(vao);
+        // RENDER LINE
+        shader_program_line.set_used();
 
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program.id(), view_name.as_ptr()),
-                1,
-                gl::FALSE,
-                view.as_ptr(),
-            );
+        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
 
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program.id(), proj_name.as_ptr()),
-                1,
-                gl::FALSE,
-                proj.as_ptr(),
-            );
-
-            // gl.DrawElements(gl::TRIANGLES, 36, gl::UNSIGNED_INT, std::ptr::null());
-            let mut i = 0;
-            loop {
-                i += 1;
-
-                // model = glm::translate(&glm::identity(), &glm::vec3(i as f32 * 1.0, 0.0, 0.0));
-
-                gl.UniformMatrix4fv(
-                    gl.GetUniformLocation(shader_program.id(), model_name.as_ptr()),
-                    1,
-                    gl::FALSE,
-                    model.as_ptr(),
-                );
-
-                // gl.DrawArrays(gl::LINE_STRIP_ADJACENCY, 0, 36);
-                gl.DrawArrays(gl::TRIANGLES, 0, 36);
-
-                if i > 0 {
-                    break;
-                }
-            }
-
-            // line
-            shader_program_line.set_used();
-
+        unsafe {
             gl.LineWidth(4.0);
             gl.BindVertexArray(vaoLine);
 
             // let line_origin = &glm::vec3(0.7, 0., 0.);
-            // let line_dest = &glm::vec3(0.6, 0., 0.);
+            // let line_dest = &glm::vec3(0.0, 0., 0.);
 
-            let line_origin = &(&camera_pos - &camera_front + &glm::vec3(0., -0.1, 0.));
+            let line_origin = &(&camera_pos - &camera_front + &glm::vec3(0., -0.5, 0.));
             let line_dest = &(&camera_pos + &camera_front * 3.);
 
             let new_z = (line_dest - line_origin).normalize();
@@ -613,7 +565,7 @@ fn main() {
 
             let is_intersect = cube.is_intersect(&ray);
             if is_intersect {
-                println!("{}", is_intersect);
+                rotation += 0.02;
             }
 
             gl.UniformMatrix4fv(
@@ -638,6 +590,59 @@ fn main() {
             );
 
             gl.DrawArrays(gl::LINES, 0, 2);
+            gl.BindVertexArray(0);
+        }
+
+        // RENDER BOX
+        shader_program.set_used();
+
+        // matrixes
+        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
+        model = glm::rotate_y(&model, rotation);
+
+        unsafe {
+            // cubes
+            gl.BindTexture(gl::TEXTURE_2D, texture_id);
+            gl.TexParameterf(gl::TEXTURE_2D, gl::TEXTURE_MAX_ANISOTROPY_EXT, filtering);
+
+            gl.BindVertexArray(vao);
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program.id(), view_name.as_ptr()),
+                1,
+                gl::FALSE,
+                view.as_ptr(),
+            );
+
+            gl.UniformMatrix4fv(
+                gl.GetUniformLocation(shader_program.id(), proj_name.as_ptr()),
+                1,
+                gl::FALSE,
+                proj.as_ptr(),
+            );
+
+            // gl.DrawElements(gl::TRIANGLES, 36, gl::UNSIGNED_INT, std::ptr::null());
+            let mut i = 0;
+            loop {
+                i += 1;
+
+                // model = glm::translate(&glm::identity(), &glm::vec3(i as f32 * 1.0, 0.0, 0.0));
+
+                gl.UniformMatrix4fv(
+                    gl.GetUniformLocation(shader_program.id(), model_name.as_ptr()),
+                    1,
+                    gl::FALSE,
+                    model.as_ptr(),
+                );
+
+                // gl.DrawArrays(gl::LINE_STRIP_ADJACENCY, 0, 36);
+                gl.DrawArrays(gl::TRIANGLES, 0, 36);
+
+                if i > 0 {
+                    break;
+                }
+            }
+
             gl.BindVertexArray(0);
         }
 

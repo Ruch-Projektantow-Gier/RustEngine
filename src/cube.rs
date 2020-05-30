@@ -41,29 +41,6 @@ impl Cube {
         let mut tmin = -f32::INFINITY;
         let mut tmax = f32::INFINITY;
 
-        // println!(
-        //     "cube: origin: {} {} {}, max: {} {} {}, min: {} {} {}",
-        //     self.origin[0],
-        //     self.origin[1],
-        //     self.origin[2],
-        //     self.max[0],
-        //     self.max[1],
-        //     self.max[2],
-        //     self.min[0],
-        //     self.min[1],
-        //     self.min[2],
-        // );
-        //
-        // println!(
-        //     "ray: origin: {} {} {}, inv_dir: {} {} {}",
-        //     ray.origin[0],
-        //     ray.origin[1],
-        //     ray.origin[2],
-        //     ray.inv_dir[0],
-        //     ray.inv_dir[1],
-        //     ray.inv_dir[2],
-        // );
-
         let inv_dir = glm::vec3(1.0 / ray.dir[0], 1.0 / ray.dir[1], 1.0 / ray.dir[2]);
 
         for i in 0..3 {
@@ -73,8 +50,6 @@ impl Cube {
             tmin = t1.min(t2).max(tmin);
             tmax = t1.max(t2).min(tmax);
         }
-
-        // println!("tmin: {}, tmax: {}", tmin, tmax);
 
         tmax > tmin.max(0.)
     }
