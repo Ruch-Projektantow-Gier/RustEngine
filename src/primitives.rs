@@ -4,6 +4,8 @@ use std::ffi::*;
 
 #[path = "render_gl.rs"]
 mod render_gl;
+#[path = "sphere.rs"]
+mod sphere;
 
 type GlInt = gl::types::GLuint;
 
@@ -184,4 +186,8 @@ pub fn build_cube(gl: &gl::GlPtr) -> Model {
         &CUBE.to_vec(),
         &[3 /* verticles */, 2 /* texture coords */],
     )
+}
+
+pub fn build_sphere(gl: &gl::GlPtr) -> Model {
+    from_vertices(&gl, &sphere::gen_sphere_vertices(10), &[3 /* verticles */])
 }

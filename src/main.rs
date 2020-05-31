@@ -54,6 +54,7 @@ fn main() {
 
     let texture = texture::Texture::new(&gl, "res/wall.jpg").unwrap();
     let render_cube = primitives::build_cube(&gl);
+    // let render_sphere = primitives::build_sphere(&gl);
 
     unsafe {
         gl.Enable(gl::DEPTH_TEST);
@@ -274,6 +275,7 @@ fn main() {
 
                 shader_program.setMat4(&model, "model");
                 render_cube.draw();
+                // render_sphere.draw();
 
                 if i > 0 {
                     break;
