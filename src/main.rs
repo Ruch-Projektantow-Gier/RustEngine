@@ -11,6 +11,7 @@ use std::time::SystemTime;
 
 mod cube;
 mod debug;
+mod primitives;
 mod render_gl;
 mod sphere;
 mod texture;
@@ -28,6 +29,10 @@ fn main() {
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(4, 5);
 
+    // antialiasing
+    gl_attr.set_multisample_buffers(1);
+    gl_attr.set_multisample_samples(8);
+
     let window = video_subsystem
         .window("Game", width, height)
         .opengl()
@@ -39,10 +44,6 @@ fn main() {
     let gl: gl::GlPtr = Rc::new(gl::Gl::load_with(|s| {
         video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
     }));
-
-    // antialiasing
-    gl_attr.set_multisample_buffers(1);
-    gl_attr.set_multisample_samples(8);
 
     unsafe {
         gl.Enable(gl::MULTISAMPLE);
@@ -382,6 +383,7 @@ fn main() {
         // let mut line_dest = &(&camera_pos + &camera_front);
 
         debug_drawer.draw(&line_dest, &line_origin);
+        debug_drawer.draw(&glm::vec3(-1.0, -1., 0.), &line_origin);
 
         // Ray cast
         let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
@@ -394,7 +396,7 @@ fn main() {
         }
 
         // RENDER BOX
-        shader_program.set_used();
+        shader_program.bind();
 
         // matrixes
         let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
@@ -405,33 +407,15 @@ fn main() {
 
             gl.BindVertexArray(vao);
 
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program.id(), view_name.as_ptr()),
-                1,
-                gl::FALSE,
-                view.as_ptr(),
-            );
-
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program.id(), proj_name.as_ptr()),
-                1,
-                gl::FALSE,
-                proj.as_ptr(),
-            );
+            shader_program.setMat4(&view, "view");
+            shader_program.setMat4(&proj, "projection");
 
             // gl.DrawElements(gl::TRIANGLES, 36, gl::UNSIGNED_INT, std::ptr::null());
             let mut i = 0;
             loop {
                 i += 1;
 
-                // model = glm::translate(&glm::identity(), &glm::vec3(i as f32 * 1.0, 0.0, 0.0));
-
-                gl.UniformMatrix4fv(
-                    gl.GetUniformLocation(shader_program.id(), model_name.as_ptr()),
-                    1,
-                    gl::FALSE,
-                    model.as_ptr(),
-                );
+                shader_program.setMat4(&model, "model");
 
                 // gl.DrawArrays(gl::LINE_STRIP_ADJACENCY, 0, 36);
                 gl.DrawArrays(gl::TRIANGLES, 0, 36);

@@ -2,6 +2,8 @@ use gl;
 use std;
 use std::ffi::{CStr, CString};
 
+type Stringable = Into<Vec<u8>>;
+
 pub struct Shader {
     gl: gl::GlPtr,
     id: gl::types::GLuint,
@@ -87,12 +89,25 @@ impl Program {
         })
     }
 
-    pub fn set_used(&self) {
+    pub fn bind(&self) {
         unsafe { self.gl.UseProgram(self.id) }
     }
 
     pub fn id(&self) -> gl::types::GLuint {
         self.id
+    }
+
+    pub fn setMat4(&self, val: &glm::Mat4, name: &'static str) {
+        let cstr_name = CString::new(name).unwrap();
+
+        unsafe {
+            self.gl.UniformMatrix4fv(
+                self.gl.GetUniformLocation(self.id, cstr_name.as_ptr()),
+                1,
+                gl::FALSE,
+                val.as_ptr(),
+            );
+        }
     }
 }
 

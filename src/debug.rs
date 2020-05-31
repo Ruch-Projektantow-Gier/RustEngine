@@ -33,7 +33,7 @@ impl<'a> DebugDrawer<'a> {
         let view_name = CString::new("view").unwrap();
         let proj_name = CString::new("projection").unwrap();
 
-        self.debug.line_program.set_used();
+        self.debug.line_program.bind();
         let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
 
         unsafe {
@@ -74,32 +74,9 @@ impl<'a> DebugDrawer<'a> {
                 );
             }
 
-            self.debug.gl.UniformMatrix4fv(
-                self.debug
-                    .gl
-                    .GetUniformLocation(self.debug.line_program.id(), view_name.as_ptr()),
-                1,
-                gl::FALSE,
-                self.view.as_ptr(),
-            );
-
-            self.debug.gl.UniformMatrix4fv(
-                self.debug
-                    .gl
-                    .GetUniformLocation(self.debug.line_program.id(), proj_name.as_ptr()),
-                1,
-                gl::FALSE,
-                self.proj.as_ptr(),
-            );
-
-            self.debug.gl.UniformMatrix4fv(
-                self.debug
-                    .gl
-                    .GetUniformLocation(self.debug.line_program.id(), model_name.as_ptr()),
-                1,
-                gl::FALSE,
-                model.as_ptr(),
-            );
+            self.debug.line_program.setMat4(&self.view, "view");
+            self.debug.line_program.setMat4(&self.proj, "projection");
+            self.debug.line_program.setMat4(&model, "model");
 
             self.debug.gl.DrawArrays(gl::LINES, 0, 2);
             self.debug.gl.BindVertexArray(0);
