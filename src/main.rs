@@ -519,11 +519,11 @@ fn main() {
             gl.LineWidth(4.0);
             gl.BindVertexArray(vaoLine);
 
-            // let line_origin = &glm::vec3(0.7, 0., 0.);
-            // let mut line_dest = &glm::vec3(0.0, 0., 0.);
+            let line_origin = &glm::vec3(-1.0, 0., 0.);
+            let line_dest = &glm::vec3(1.0, 0., 0.);
 
-            let line_origin = &camera_pos;
-            let mut line_dest = &(&camera_pos + &camera_front);
+            // let line_origin = &camera_pos;
+            // let mut line_dest = &(&camera_pos + &camera_front);
 
             // Ray cast
             let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
@@ -532,6 +532,7 @@ fn main() {
             let is_intersect = cube.is_intersect(&ray);
 
             if is_intersect {
+                println!("Kolizja!");
                 cube.get_intersect_face(&ray);
             }
             // end of ray cast

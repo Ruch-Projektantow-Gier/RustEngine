@@ -7,9 +7,9 @@ static CUBE_HALF_SIZE: f32 = CUBE_SIZE * 0.5;
 
 fn invert_vector(v: &Vec3f) -> Vec3f {
     glm::vec3(
-        if v[0] != 0. { 1. / v[0] } else { 0. },
-        if v[1] != 0. { 1. / v[1] } else { 0. },
-        if v[2] != 0. { 1. / v[2] } else { 0. },
+        if v[0] != 0. { 1. / v[0] } else { f32::INFINITY },
+        if v[1] != 0. { 1. / v[1] } else { f32::INFINITY },
+        if v[2] != 0. { 1. / v[2] } else { f32::INFINITY },
     )
 }
 
