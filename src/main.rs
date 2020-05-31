@@ -1,4 +1,3 @@
-extern crate imgui;
 extern crate nalgebra_glm as glm;
 extern crate sdl2;
 extern crate stb_image;
@@ -49,154 +48,29 @@ fn main() {
         gl.Enable(gl::MULTISAMPLE);
     }
 
-    // cube
-    let vertices: Vec<f32> = vec![
-        -0.5, -0.5, -0.5, /* */ 0.0, 0.0, //
-        0.5, -0.5, -0.5, /* */ 1.0, 0.0, //
-        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
-        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
-        -0.5, 0.5, -0.5, /* */ 0.0, 1.0, //
-        -0.5, -0.5, -0.5, /* */ 0.0, 0.0, //
-        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
-        0.5, -0.5, 0.5, /* */ 1.0, 0.0, //
-        0.5, 0.5, 0.5, /* */ 1.0, 1.0, //
-        0.5, 0.5, 0.5, /* */ 1.0, 1.0, //
-        -0.5, 0.5, 0.5, /* */ 0.0, 1.0, //
-        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
-        -0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
-        -0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
-        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
-        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
-        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
-        -0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
-        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
-        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
-        0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
-        0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
-        0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
-        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
-        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
-        0.5, -0.5, -0.5, /* */ 1.0, 1.0, //
-        0.5, -0.5, 0.5, /* */ 1.0, 0.0, //
-        0.5, -0.5, 0.5, /* */ 1.0, 0.0, //
-        -0.5, -0.5, 0.5, /* */ 0.0, 0.0, //
-        -0.5, -0.5, -0.5, /* */ 0.0, 1.0, //
-        -0.5, 0.5, -0.5, /* */ 0.0, 1.0, //
-        0.5, 0.5, -0.5, /* */ 1.0, 1.0, //
-        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
-        0.5, 0.5, 0.5, /* */ 1.0, 0.0, //
-        -0.5, 0.5, 0.5, /* */ 0.0, 0.0, //
-        -0.5, 0.5, -0.5, /* */ 0.0, 1.0, //
-    ];
-
-    // let indices: Vec<i32> = vec![
-    //     0, 1, 3, //
-    //     1, 2, 3, //
-    // ];
-
+    // Render
     let debug = debug::Debug::new(&gl);
     texture::Texture::init(&gl); // anisotropic
 
     let texture = texture::Texture::new(&gl, "res/wall.jpg").unwrap();
-
-    // vao
-    let mut vao: gl::types::GLuint = 0;
-    let mut vbo: gl::types::GLuint = 0;
-    let mut ebo: gl::types::GLuint = 0;
+    let render_cube = primitives::build_cube(&gl);
 
     unsafe {
-        gl.GenVertexArrays(1, &mut vao);
-        gl.GenBuffers(1, &mut vbo);
-        gl.GenBuffers(1, &mut ebo);
-    }
-
-    unsafe {
-        gl.BindVertexArray(vao);
-
-        gl.BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl.BufferData(
-            gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-            vertices.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW,
-        );
-
-        // gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
-        // gl.BufferData(
-        //     gl::ELEMENT_ARRAY_BUFFER,
-        //     (indices.len() * std::mem::size_of::<i32>()) as gl::types::GLsizeiptr,
-        //     indices.as_ptr() as *const gl::types::GLvoid,
-        //     gl::STATIC_DRAW,
-        // );
-
-        // positions
-        gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(
-            0, // layout (location = 0)
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            (5 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
-            std::ptr::null(),                                     // offset of first component
-        );
-
-        // // colors
-        // gl.EnableVertexAttribArray(1);
-        // gl.VertexAttribPointer(
-        //     1, // layout (location = 1)
-        //     3,
-        //     gl::FLOAT,                                                    // data-type
-        //     gl::FALSE,                                                    // normalized
-        //     (8 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
-        //     (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
-        // );
-
-        // texture coords
-        gl.EnableVertexAttribArray(2);
-        gl.VertexAttribPointer(
-            2, // layout (location = 2)
-            2,
-            gl::FLOAT,                                                    // data-type
-            gl::FALSE,                                                    // normalized
-            (5 * std::mem::size_of::<f32>()) as gl::types::GLint,         // stride
-            (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid, // offset
-        );
-
-        gl.EnableVertexAttribArray(0);
-        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl.BindVertexArray(0);
-        // gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-
         gl.Enable(gl::DEPTH_TEST);
     }
 
     // Shader
-    use std::ffi::CString;
-    let vert_shader = render_gl::Shader::from_vert_source(
+    let shader_program = render_gl::Program::from_files(
         &gl,
-        &CString::new(include_str!("triangle.vert")).unwrap(),
+        include_str!("triangle.vert"),
+        include_str!("triangle.frag"),
     )
     .unwrap();
-
-    let frag_shader = render_gl::Shader::from_frag_source(
-        &gl,
-        &CString::new(include_str!("triangle.frag")).unwrap(),
-    )
-    .unwrap();
-
-    let shader_program =
-        render_gl::Program::from_shaders(&gl, &[vert_shader, frag_shader]).unwrap();
 
     // props
     let s_per_update = 1.0 / 30.0;
     let mut previous = SystemTime::now();
     let mut lag = 0.0;
-
-    let model_name = CString::new("model").unwrap();
-    let view_name = CString::new("view").unwrap();
-    let proj_name = CString::new("projection").unwrap();
-
-    let mut rotation: f32 = 0.0;
 
     let camera_speed = 0.1;
     let mut camera_pos = glm::vec3(0., 0., 1.);
@@ -209,26 +83,11 @@ fn main() {
     let mut cam_sensitive = 0.1;
     let mut yaw = 0.0; // y
     let mut pitch = 0.0; // x
-                         // roll is on z
+
     let mut is_camera_movement = false;
 
-    // Imgui
-    // let mut ui = Context::create();
-    // Window::new(im_str!("Hello world"))
-    //     .size([300.0, 110.0], Condition::FirstUseEver)
-    //     .build(ui, || {
-    //         ui.text(im_str!("Hello world!"));
-    //         ui.text(im_str!("こんにちは世界！"));
-    //         ui.text(im_str!("This...is...imgui-rs!"));
-    //         ui.separator();
-    //         let mouse_pos = ui.io().mouse_pos;
-    //         ui.text(format!(
-    //             "Mouse Position: ({:.1},{:.1})",
-    //             mouse_pos[0], mouse_pos[1]
-    //         ));
-    //     });
-
     let mut event_pump = sdl.event_pump().unwrap();
+
     'main: loop {
         let current = SystemTime::now();
         let elapsed = current.duration_since(previous).unwrap();
@@ -384,16 +243,17 @@ fn main() {
 
         debug_drawer.draw(&line_dest, &line_origin);
         debug_drawer.draw(&glm::vec3(-1.0, -1., 0.), &line_origin);
+        debug_drawer.draw(&glm::vec3(1.0, 1., 0.), &line_origin);
 
         // Ray cast
-        let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
-        let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
-
-        let is_intersect = cube.is_intersect(&ray);
-        if is_intersect {
-            println!("Kolizja!");
-            cube.get_intersect_face(&ray);
-        }
+        // let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
+        // let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
+        //
+        // let is_intersect = cube.is_intersect(&ray);
+        // if is_intersect {
+        //     println!("Kolizja!");
+        //     cube.get_intersect_face(&ray);
+        // }
 
         // RENDER BOX
         shader_program.bind();
@@ -405,27 +265,20 @@ fn main() {
             // cubes
             texture.bind();
 
-            gl.BindVertexArray(vao);
-
             shader_program.setMat4(&view, "view");
             shader_program.setMat4(&proj, "projection");
 
-            // gl.DrawElements(gl::TRIANGLES, 36, gl::UNSIGNED_INT, std::ptr::null());
             let mut i = 0;
             loop {
                 i += 1;
 
                 shader_program.setMat4(&model, "model");
-
-                // gl.DrawArrays(gl::LINE_STRIP_ADJACENCY, 0, 36);
-                gl.DrawArrays(gl::TRIANGLES, 0, 36);
+                render_cube.draw();
 
                 if i > 0 {
                     break;
                 }
             }
-
-            gl.BindVertexArray(0);
         }
 
         window.gl_swap_window();

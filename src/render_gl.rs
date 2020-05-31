@@ -89,6 +89,19 @@ impl Program {
         })
     }
 
+    pub fn from_files(
+        gl: &gl::GlPtr,
+        vert_path: &'static str,
+        frag_path: &'static str,
+    ) -> Result<Program, String> {
+        use std::ffi::CString;
+
+        let vert_shader = Shader::from_vert_source(&gl, &CString::new(vert_path).unwrap())?;
+        let frag_shader = Shader::from_frag_source(&gl, &CString::new(frag_path).unwrap())?;
+
+        Self::from_shaders(&gl, &[vert_shader, frag_shader])
+    }
+
     pub fn bind(&self) {
         unsafe { self.gl.UseProgram(self.id) }
     }

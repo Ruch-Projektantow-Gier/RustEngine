@@ -9,4 +9,3 @@ sdl2 = { version = "0.34.0", features = ["bundled", "static-link"] }
 gl = { path = "lib/gl" }
 nalgebra-glm = "0.7.0"
 stb_image = "0.2.2"
-imgui = "0.4.0"
