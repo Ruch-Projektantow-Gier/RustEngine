@@ -15,21 +15,8 @@ use std::time::SystemTime;
 
 mod cube;
 pub mod render_gl;
-
-pub trait FromVec<T> {
-    fn from_vec4(x: &glm::Vec3, y: &glm::Vec3, z: &glm::Vec3, origin: &glm::Vec3) -> T;
-}
-
-impl FromVec<glm::Mat4> for glm::Mat4 {
-    fn from_vec4(x: &glm::Vec3, y: &glm::Vec3, z: &glm::Vec3, origin: &glm::Vec3) -> glm::Mat4 {
-        glm::mat4(
-            x[0], y[0], z[0], origin[0], //
-            x[1], y[1], z[1], origin[1], //
-            x[2], y[2], z[2], origin[2], //
-            0., 0., 0., 1., //
-        )
-    }
-}
+mod sphere;
+mod texture;
 
 fn main() {
     let width = 900;
@@ -163,59 +150,10 @@ fn main() {
     //     1, 2, 3, //
     // ];
 
-    unsafe {
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_WRAP_S,
-            gl::MIRRORED_REPEAT as i32,
-        );
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_WRAP_T,
-            gl::MIRRORED_REPEAT as i32,
-        );
-
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_MIN_FILTER,
-            gl::LINEAR_MIPMAP_LINEAR as i32,
-        );
-        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-    }
-
-    let texture_load_result = stb_image::image::load("res/wall.jpg");
-    let mut texture_id: u32 = 0;
-
-    match texture_load_result {
-        LoadResult::Error(_) => {}
-        LoadResult::ImageU8(image) => {
-            let texture_image = image;
-
-            unsafe {
-                gl.GenTextures(1, &mut texture_id);
-                gl.BindTexture(gl::TEXTURE_2D, texture_id);
-                gl.TexImage2D(
-                    gl::TEXTURE_2D,
-                    0,
-                    gl::RGB as i32,
-                    texture_image.width as i32,
-                    texture_image.height as i32,
-                    0,
-                    gl::RGB,
-                    gl::UNSIGNED_BYTE,
-                    texture_image.data.as_ptr() as *const gl::types::GLvoid,
-                );
-                gl.GenerateMipmap(gl::TEXTURE_2D);
-            }
-        }
-        LoadResult::ImageF32(_) => {}
-    }
-
     // anisotropic
-    let mut filtering: f32 = 0.;
-    unsafe {
-        gl.GetFloatv(gl::MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut filtering);
-    }
+    texture::Texture::init(&gl);
+
+    let texture = texture::Texture::new(&gl, "res/wall.jpg").unwrap();
 
     // vao
     let mut vao: gl::types::GLuint = 0;
@@ -602,12 +540,10 @@ fn main() {
 
         // matrixes
         let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
-        model = glm::rotate_y(&model, rotation);
 
         unsafe {
             // cubes
-            gl.BindTexture(gl::TEXTURE_2D, texture_id);
-            gl.TexParameterf(gl::TEXTURE_2D, gl::TEXTURE_MAX_ANISOTROPY_EXT, filtering);
+            texture.bind();
 
             gl.BindVertexArray(vao);
 
