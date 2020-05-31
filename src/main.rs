@@ -4,17 +4,14 @@ extern crate sdl2;
 extern crate stb_image;
 
 use gl;
-use imgui::*;
+// use imgui::*;
 
-#[allow(unused_imports)]
-use stb_image::image::LoadResult;
-#[allow(unused_imports)]
-use stb_image::stb_image::bindgen::stbi_load_from_file;
 use std::rc::Rc;
 use std::time::SystemTime;
 
 mod cube;
-pub mod render_gl;
+mod debug;
+mod render_gl;
 mod sphere;
 mod texture;
 
@@ -31,10 +28,6 @@ fn main() {
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(4, 5);
 
-    // antialiasing
-    gl_attr.set_multisample_buffers(1);
-    gl_attr.set_multisample_samples(8);
-
     let window = video_subsystem
         .window("Game", width, height)
         .opengl()
@@ -47,62 +40,12 @@ fn main() {
         video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
     }));
 
+    // antialiasing
+    gl_attr.set_multisample_buffers(1);
+    gl_attr.set_multisample_samples(8);
+
     unsafe {
         gl.Enable(gl::MULTISAMPLE);
-    }
-
-    // Verticles
-    // plane
-    // let vertices: Vec<f32> = vec![
-    //     // positions      // colors
-    //     0.5, 0.5, 0.0, /* */ 1.0, 0.0, 0.0, /* */ 1.0, 1.0, // top right
-    //     0.5, -0.5, 0.0, /* */ 0.0, 1.0, 0.0, /* */ 1.0, 0.0, // bottom right
-    //     -0.5, -0.5, 0.0, /* */ 0.0, 0.0, 1.0, /* */ 0.0, 0.0, // bottom left
-    //     -0.5, 0.5, 0.0, /* */ 0.5, 0.5, 0.5, /* */ 0.0, 1.0, // top left
-    // ];
-
-    // line
-    let line: Vec<f32> = vec![
-        0., 0., 0., //
-        0., 0., 1.,
-    ];
-
-    // vao
-    let mut vaoLine: gl::types::GLuint = 0;
-    let mut vboLine: gl::types::GLuint = 0;
-
-    unsafe {
-        gl.GenVertexArrays(1, &mut vaoLine);
-        gl.GenBuffers(1, &mut vboLine);
-    }
-
-    unsafe {
-        gl.BindVertexArray(vaoLine);
-
-        gl.BindBuffer(gl::ARRAY_BUFFER, vboLine);
-        gl.BufferData(
-            gl::ARRAY_BUFFER,
-            (line.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-            line.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW,
-        );
-
-        // positions
-        gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(
-            0, // layout (location = 0)
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            (3 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride
-            std::ptr::null(),                                     // offset of first component
-        );
-
-        gl.EnableVertexAttribArray(0);
-        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl.BindVertexArray(0);
-
-        gl.Enable(gl::DEPTH_TEST);
     }
 
     // cube
@@ -150,8 +93,8 @@ fn main() {
     //     1, 2, 3, //
     // ];
 
-    // anisotropic
-    texture::Texture::init(&gl);
+    let debug = debug::Debug::new(&gl);
+    texture::Texture::init(&gl); // anisotropic
 
     let texture = texture::Texture::new(&gl, "res/wall.jpg").unwrap();
 
@@ -243,25 +186,7 @@ fn main() {
     let shader_program =
         render_gl::Program::from_shaders(&gl, &[vert_shader, frag_shader]).unwrap();
 
-    // Shader Line
-    let vert_shader_line =
-        render_gl::Shader::from_vert_source(&gl, &CString::new(include_str!("ray.vert")).unwrap())
-            .unwrap();
-
-    let frag_shader_line =
-        render_gl::Shader::from_frag_source(&gl, &CString::new(include_str!("ray.frag")).unwrap())
-            .unwrap();
-
-    let shader_program_line =
-        render_gl::Program::from_shaders(&gl, &[vert_shader_line, frag_shader_line]).unwrap();
-
-    // unsafe {
-    //     gl::Viewport(0, 0, 900, 700);
-    //     gl::ClearColor(0.5, 0.5, 0.5, 1.0);
-    // }
-
-    // let cube = cube::Cube::new(0, 0, 0);
-
+    // props
     let s_per_update = 1.0 / 30.0;
     let mut previous = SystemTime::now();
     let mut lag = 0.0;
@@ -449,90 +374,22 @@ fn main() {
         let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
 
         // RENDER LINE
-        shader_program_line.set_used();
+        let line_origin = &glm::vec3(-1.0, 0., 0.);
+        let line_dest = &glm::vec3(1.0, 0., 0.);
 
-        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
+        debug.draw(&view, &proj, &line_dest, &line_origin);
 
-        unsafe {
-            gl.LineWidth(4.0);
-            gl.BindVertexArray(vaoLine);
+        // let line_origin = &camera_pos;
+        // let mut line_dest = &(&camera_pos + &camera_front);
 
-            let line_origin = &glm::vec3(-1.0, 0., 0.);
-            let line_dest = &glm::vec3(1.0, 0., 0.);
+        // Ray cast
+        let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
+        let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
 
-            // let line_origin = &camera_pos;
-            // let mut line_dest = &(&camera_pos + &camera_front);
-
-            // Ray cast
-            let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
-            let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
-
-            let is_intersect = cube.is_intersect(&ray);
-
-            if is_intersect {
-                println!("Kolizja!");
-                cube.get_intersect_face(&ray);
-            }
-            // end of ray cast
-
-            let new_z = (line_dest - line_origin).normalize();
-            let mut new_y = glm::cross(&new_z, &glm::vec3(0., 0., 1.));
-
-            if new_y.magnitude() < glm::epsilon() {
-                new_y = glm::vec3(0., 1., 0.);
-            }
-
-            let new_x = glm::cross(&new_z, &new_y).normalize();
-            {
-                let x = new_x;
-                let y = new_y;
-                let z = new_z;
-                let origin = line_origin;
-                let length = (line_dest - line_origin).magnitude();
-
-                model = glm::mat4(
-                    x[0] * length,
-                    y[0] * length,
-                    z[0] * length,
-                    origin[0], //
-                    x[1] * length,
-                    y[1] * length,
-                    z[1] * length,
-                    origin[1], //
-                    x[2] * length,
-                    y[2] * length,
-                    z[2] * length,
-                    origin[2], //
-                    0.,
-                    0.,
-                    0.,
-                    1., //
-                );
-            }
-
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program_line.id(), view_name.as_ptr()),
-                1,
-                gl::FALSE,
-                view.as_ptr(),
-            );
-
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program_line.id(), proj_name.as_ptr()),
-                1,
-                gl::FALSE,
-                proj.as_ptr(),
-            );
-
-            gl.UniformMatrix4fv(
-                gl.GetUniformLocation(shader_program_line.id(), model_name.as_ptr()),
-                1,
-                gl::FALSE,
-                model.as_ptr(),
-            );
-
-            gl.DrawArrays(gl::LINES, 0, 2);
-            gl.BindVertexArray(0);
+        let is_intersect = cube.is_intersect(&ray);
+        if is_intersect {
+            println!("Kolizja!");
+            cube.get_intersect_face(&ray);
         }
 
         // RENDER BOX
