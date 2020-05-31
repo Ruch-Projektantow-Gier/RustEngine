@@ -520,10 +520,21 @@ fn main() {
             gl.BindVertexArray(vaoLine);
 
             // let line_origin = &glm::vec3(0.7, 0., 0.);
-            // let line_dest = &glm::vec3(0.0, 0., 0.);
+            // let mut line_dest = &glm::vec3(0.0, 0., 0.);
 
-            let line_origin = &(&camera_pos - &camera_front + &glm::vec3(0., -0.5, 0.));
-            let line_dest = &(&camera_pos + &camera_front * 3.);
+            let line_origin = &camera_pos;
+            let mut line_dest = &(&camera_pos + &camera_front);
+
+            // Ray cast
+            let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
+            let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
+
+            let is_intersect = cube.is_intersect(&ray);
+
+            if is_intersect {
+                cube.get_intersect_face(&ray);
+            }
+            // end of ray cast
 
             let new_z = (line_dest - line_origin).normalize();
             let mut new_y = glm::cross(&new_z, &glm::vec3(0., 0., 1.));
@@ -558,14 +569,6 @@ fn main() {
                     0.,
                     1., //
                 );
-            }
-
-            let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
-            let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
-
-            let is_intersect = cube.is_intersect(&ray);
-            if is_intersect {
-                rotation += 0.02;
             }
 
             gl.UniformMatrix4fv(
