@@ -372,16 +372,16 @@ fn main() {
         // MATRIXES
         let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
         let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
-        let debugDrawer = debug.setup_drawer(&view, &proj);
+        let debug_drawer = debug.setup_drawer(&view, &proj);
 
         // RENDER LINE
         let line_origin = &glm::vec3(-1.0, 0., 0.);
         let line_dest = &glm::vec3(1.0, 0., 0.);
 
-        debugDrawer.draw(&line_dest, &line_origin);
-
         // let line_origin = &camera_pos;
         // let mut line_dest = &(&camera_pos + &camera_front);
+
+        debug_drawer.draw(&line_dest, &line_origin);
 
         // Ray cast
         let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
