@@ -68,6 +68,12 @@ fn main() {
     )
     .unwrap();
 
+    let mut cubes: Vec<glm::Vec3> = vec![];
+    cubes.push(glm::vec3(0., 0., 0.));
+    cubes.push(glm::vec3(1., 0., 0.));
+
+    let mut candidate: Option<glm::Vec3> = None;
+
     // props
     let s_per_update = 1.0 / 30.0;
     let mut previous = SystemTime::now();
@@ -167,6 +173,20 @@ fn main() {
                     camera_pos -= &camera_up * camera_speed;
                 }
                 sdl2::event::Event::MouseButtonDown {
+                    mouse_btn: sdl2::mouse::MouseButton::Left,
+                    ..
+                } => {
+                    match candidate {
+                        Some(pos) => {
+                            println!("asds {}", pos);
+                            cubes.push(&pos * cube::CUBE_SIZE);
+                        }
+                        None => {}
+                    }
+
+                    ()
+                }
+                sdl2::event::Event::MouseButtonDown {
                     mouse_btn: sdl2::mouse::MouseButton::Right,
                     x,
                     y,
@@ -246,46 +266,35 @@ fn main() {
         // debug_drawer.draw(&glm::vec3(-1.0, -1., 0.), &line_origin);
         // debug_drawer.draw(&glm::vec3(1.0, 1., 0.), &line_origin);
 
-        // matrixes
-        let modelPos = glm::vec3(0., 0., 0.);
-        let mut model = glm::translate(&glm::identity(), &modelPos);
-
-        // Ray cast
-        let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
-        let cube = cube::Cube::new(&modelPos);
-
-        let is_intersect = cube.is_intersect(&ray);
-        if is_intersect {
-            let (.., normal) = cube.get_intersect_face(&ray);
-
-            debug_drawer.draw(
-                &(&modelPos + &normal * cube::CUBE_HALF_SIZE),
-                &(&modelPos + &normal * cube::CUBE_HALF_SIZE * 2.),
-            );
-        }
-
         // RENDER BOX
-        shader_program.bind();
+        for &cubePos in &cubes {
+            let mut model = glm::translate(&glm::identity(), &cubePos);
 
-        unsafe {
-            // cubes
+            // Ray cast
+            let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
+            let cube = cube::Cube::new(&cubePos);
+
+            let is_intersect = cube.is_intersect(&ray);
+            if is_intersect {
+                let (.., normal) = cube.get_intersect_face(&ray);
+
+                debug_drawer.draw(
+                    &(&cubePos + &normal * cube::CUBE_HALF_SIZE),
+                    &(&cubePos + &normal * cube::CUBE_HALF_SIZE * 1.7),
+                );
+
+                candidate = Some(&cubePos + normal);
+            }
+
+            // Render
+            shader_program.bind();
             texture.bind();
 
             shader_program.setMat4(&view, "view");
             shader_program.setMat4(&proj, "projection");
+            shader_program.setMat4(&model, "model");
 
-            let mut i = 0;
-            loop {
-                i += 1;
-
-                shader_program.setMat4(&model, "model");
-                render_cube.draw();
-                // render_sphere.draw();
-
-                if i > 0 {
-                    break;
-                }
-            }
+            render_cube.draw();
         }
 
         window.gl_swap_window();
