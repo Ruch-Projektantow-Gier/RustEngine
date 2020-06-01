@@ -2,8 +2,8 @@ extern crate nalgebra_glm as glm;
 
 type Vec3f = glm::TVec3<f32>;
 
-static CUBE_SIZE: f32 = 1.0;
-static CUBE_HALF_SIZE: f32 = CUBE_SIZE * 0.5;
+pub static CUBE_SIZE: f32 = 1.0;
+pub static CUBE_HALF_SIZE: f32 = CUBE_SIZE * 0.5;
 
 fn invert_vector(v: &Vec3f) -> Vec3f {
     glm::vec3(
@@ -33,7 +33,8 @@ impl Ray {
     }
 }
 
-pub enum CubeFace {
+#[derive(Copy, Clone)]
+pub enum EFace {
     Right,
     Left,
     Top,
@@ -42,6 +43,17 @@ pub enum CubeFace {
     Back,
     None,
 }
+
+pub type Face = (EFace, glm::Vec3);
+type Coords3 = [f32; 3];
+static FACES: [(EFace, Coords3); 6] = [
+    (EFace::Right, [1., 0., 0.]),
+    (EFace::Left, [-1., 0., 0.]),
+    (EFace::Top, [0., 1., 0.]),
+    (EFace::Bottom, [0., -1., 0.]),
+    (EFace::Front, [0., 0., 1.]),
+    (EFace::Back, [0., 0., -1.]),
+];
 
 impl Cube {
     pub fn new(origin: &Vec3f) -> Cube {
@@ -82,51 +94,24 @@ impl Cube {
         ray.origin + invert_vector(&ray.inv_dir) * tmin
     }
 
-    pub fn get_intersect_face(&self, ray: &Ray) {
+    pub fn get_intersect_face(&self, ray: &Ray) -> Face {
         let contact = self.get_contact(&ray);
         let dir_to_camera = &(contact - self.origin).normalize();
 
-        let faces = [
-            (CubeFace::Right, glm::vec3(1., 0., 0.)),
-            (CubeFace::Left, glm::vec3(-1., 0., 0.)),
-            (CubeFace::Top, glm::vec3(0., 1., 0.)),
-            (CubeFace::Bottom, glm::vec3(0., -1., 0.)),
-            (CubeFace::Front, glm::vec3(0., 0., 1.)),
-            (CubeFace::Back, glm::vec3(0., 0., -1.)),
-        ];
+        let mut max_proj = 0.;
+        let mut target: Face = (EFace::None, glm::vec3(0., 0., 0.));
 
-        type Visible<'a> = (&'a CubeFace, f32);
-        let mut target: Visible = (&CubeFace::None, -1.);
-
-        for face in faces.iter() {
-            let (face_type, normal) = face;
+        for &face in &FACES {
+            let (face_type, normal_coords) = face;
+            let normal = glm::make_vec3(&normal_coords);
             let proj = glm::dot(&normal, dir_to_camera);
 
-            if proj > target.1 {
-                target = (face_type, proj);
+            if proj > max_proj {
+                target = (face_type, normal);
+                max_proj = proj;
             }
         }
 
-        match target.0 {
-            CubeFace::Right => {
-                println!("Right! ");
-            }
-            CubeFace::Left => {
-                println!("Left! ");
-            }
-            CubeFace::Top => {
-                println!("Top! ");
-            }
-            CubeFace::Bottom => {
-                println!("Bottom! ");
-            }
-            CubeFace::Front => {
-                println!("Front! ");
-            }
-            CubeFace::Back => {
-                println!("Back! ");
-            }
-            _ => {}
-        }
+        target
     }
 }

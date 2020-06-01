@@ -236,31 +236,36 @@ fn main() {
         let debug_drawer = debug.setup_drawer(&view, &proj);
 
         // RENDER LINE
-        let line_origin = &glm::vec3(-1.0, 0., 0.);
-        let line_dest = &glm::vec3(1.0, 0., 0.);
+        // let line_origin = &glm::vec3(-1.0, 0., 0.);
+        // let line_dest = &glm::vec3(1.0, 0., 0.);
 
-        // let line_origin = &camera_pos;
-        // let mut line_dest = &(&camera_pos + &camera_front);
+        let line_origin = &camera_pos;
+        let mut line_dest = &(&camera_pos + &camera_front * 3.);
 
-        debug_drawer.draw(&line_dest, &line_origin);
-        debug_drawer.draw(&glm::vec3(-1.0, -1., 0.), &line_origin);
-        debug_drawer.draw(&glm::vec3(1.0, 1., 0.), &line_origin);
+        // debug_drawer.draw(&line_dest, &line_origin);
+        // debug_drawer.draw(&glm::vec3(-1.0, -1., 0.), &line_origin);
+        // debug_drawer.draw(&glm::vec3(1.0, 1., 0.), &line_origin);
+
+        // matrixes
+        let modelPos = glm::vec3(0., 0., 0.);
+        let mut model = glm::translate(&glm::identity(), &modelPos);
 
         // Ray cast
-        // let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
-        // let cube = cube::Cube::new(&glm::vec3(0., 0., 0.));
-        //
-        // let is_intersect = cube.is_intersect(&ray);
-        // if is_intersect {
-        //     println!("Kolizja!");
-        //     cube.get_intersect_face(&ray);
-        // }
+        let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
+        let cube = cube::Cube::new(&modelPos);
+
+        let is_intersect = cube.is_intersect(&ray);
+        if is_intersect {
+            let (.., normal) = cube.get_intersect_face(&ray);
+
+            debug_drawer.draw(
+                &(&modelPos + &normal * cube::CUBE_HALF_SIZE),
+                &(&modelPos + &normal * cube::CUBE_HALF_SIZE * 2.),
+            );
+        }
 
         // RENDER BOX
         shader_program.bind();
-
-        // matrixes
-        let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
 
         unsafe {
             // cubes
