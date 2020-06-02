@@ -15,6 +15,85 @@ mod render_gl;
 mod sphere;
 mod texture;
 
+type Mat4 = glm::Mat4;
+type Vec3f = glm::Vec3;
+
+struct SceneBuffer {
+    is_first: bool,
+}
+
+impl SceneBuffer {
+    pub fn new() -> Self {
+        SceneBuffer { is_first: true }
+    }
+
+    pub fn swap(&mut self) {
+        self.is_first = !self.is_first;
+    }
+}
+
+struct DoubleBuffered<T> {
+    first: T,
+    second: T,
+}
+
+impl<T: std::clone::Clone> DoubleBuffered<T> {
+    pub fn new(obj: T) -> Self {
+        DoubleBuffered {
+            first: obj.clone(),
+            second: obj,
+        }
+    }
+
+    pub fn get(&self, scene_buffer: &SceneBuffer) -> &T {
+        if scene_buffer.is_first {
+            &self.first
+        } else {
+            &self.second
+        }
+    }
+
+    pub fn set(&mut self, val: T, scene_buffer: &SceneBuffer) {
+        if scene_buffer.is_first {
+            self.first = val
+        } else {
+            self.second = val
+        }
+    }
+
+    pub fn get_last(&self, scene_buffer: &SceneBuffer) -> &T {
+        if !scene_buffer.is_first {
+            &self.first
+        } else {
+            &self.second
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TransformComponent {
+    position: Vec3f,
+    rotation: glm::Quat,
+    scale: Vec3f,
+}
+
+impl TransformComponent {
+    fn get_mat4(&self) -> Mat4 {
+        &glm::one::<Mat4>()
+            * glm::translation(&self.position)
+            * glm::scaling(&self.scale)
+            * glm::quat_to_mat4(&self.rotation)
+    }
+
+    fn interpolate(&self, transform: &TransformComponent, alpha: f32) -> TransformComponent {
+        TransformComponent {
+            position: glm::lerp(&self.position, &transform.position, alpha),
+            rotation: glm::quat_slerp(&self.rotation, &transform.rotation, alpha),
+            scale: glm::lerp(&self.scale, &transform.scale, alpha),
+        }
+    }
+}
+
 fn main() {
     let width = 900;
     let height = 700;
@@ -68,9 +147,13 @@ fn main() {
     )
     .unwrap();
 
-    let mut cubes: Vec<glm::Vec3> = vec![];
-    cubes.push(glm::vec3(0., 0., 0.));
-    cubes.push(glm::vec3(1., 0., 0.));
+    let mut scene_buffer = SceneBuffer::new();
+    let mut cubes: Vec<DoubleBuffered<TransformComponent>> = vec![];
+    cubes.push(DoubleBuffered::new(TransformComponent {
+        position: glm::vec3(0., 0., 0.),
+        rotation: glm::quat_identity(),
+        scale: glm::vec3(1., 2., 1.),
+    }));
 
     let mut candidate: Option<glm::Vec3> = None;
 
@@ -80,7 +163,7 @@ fn main() {
     let mut lag = 0.0;
 
     let camera_speed = 0.1;
-    let mut camera_pos = glm::vec3(0., 0., 1.);
+    let mut camera_pos = glm::vec3(0., 0., 3.);
     let mut camera_front = glm::vec3(0., 0., -1.);
     let mut camera_up = glm::vec3(0., 1., 0.);
     let mut camera_movement = glm::vec2(0, 0);
@@ -92,14 +175,13 @@ fn main() {
     let mut pitch = 0.0; // x
 
     let mut is_camera_movement = false;
-
     let mut event_pump = sdl.event_pump().unwrap();
 
     'main: loop {
         let current = SystemTime::now();
         let elapsed = current.duration_since(previous).unwrap();
         previous = current;
-        lag += elapsed.as_secs_f64();
+        lag += elapsed.as_secs_f32();
 
         for event in event_pump.poll_iter() {
             match event {
@@ -172,20 +254,19 @@ fn main() {
                 } => {
                     camera_pos -= &camera_up * camera_speed;
                 }
-                sdl2::event::Event::MouseButtonDown {
-                    mouse_btn: sdl2::mouse::MouseButton::Left,
-                    ..
-                } => {
-                    match candidate {
-                        Some(pos) => {
-                            println!("asds {}", pos);
-                            cubes.push(&pos * cube::CUBE_SIZE);
-                        }
-                        None => {}
-                    }
-
-                    ()
-                }
+                // sdl2::event::Event::MouseButtonDown {
+                //     mouse_btn: sdl2::mouse::MouseButton::Left,
+                //     ..
+                // } => {
+                //     match &candidate {
+                //         Some(pos) => {
+                //             cubes.push(pos * cube::CUBE_SIZE);
+                //         }
+                //         None => {}
+                //     }
+                //
+                //     ()
+                // }
                 sdl2::event::Event::MouseButtonDown {
                     mouse_btn: sdl2::mouse::MouseButton::Right,
                     x,
@@ -240,13 +321,37 @@ fn main() {
                 * camera_movement[0] as f32;
             camera_pos += &camera_front * camera_speed * camera_movement[1] as f32;
 
+            // Cubes
+            for transforms in &mut cubes {
+                let transform = transforms.get(&scene_buffer);
+
+                transforms.set(
+                    TransformComponent {
+                        position: transform.position,
+                        // rotation: transform.rotation + glm::vec3(0., 0.3, 0.),
+                        rotation: glm::quat_rotate(
+                            &transform.rotation,
+                            0.2,
+                            &glm::vec3(0., 1., 0.),
+                        ),
+                        scale: transform.scale,
+                    },
+                    &scene_buffer,
+                );
+            }
+            scene_buffer.swap();
+
             // update
             lag -= s_per_update;
         }
 
-        let _alpha = lag / s_per_update;
+        let alpha: f32 = lag / s_per_update;
 
         unsafe {
+            gl.Enable(gl::CULL_FACE);
+            gl.CullFace(gl::BACK);
+            gl.FrontFace(gl::CW);
+
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
@@ -267,23 +372,29 @@ fn main() {
         // debug_drawer.draw(&glm::vec3(1.0, 1., 0.), &line_origin);
 
         // RENDER BOX
-        for &cubePos in &cubes {
-            let mut model = glm::translate(&glm::identity(), &cubePos);
+        for cube in &cubes {
+            // println!("{}", alpha);
+
+            let transform = cube
+                .get(&scene_buffer)
+                .interpolate(cube.get_last(&scene_buffer), alpha);
+
+            // let transform = cube.get(&scene_buffer);
 
             // Ray cast
             let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
-            let cube = cube::Cube::new(&cubePos);
+            let cube = cube::Cube::new(&transform.position);
 
             let is_intersect = cube.is_intersect(&ray);
             if is_intersect {
                 let (.., normal) = cube.get_intersect_face(&ray);
 
                 debug_drawer.draw(
-                    &(&cubePos + &normal * cube::CUBE_HALF_SIZE),
-                    &(&cubePos + &normal * cube::CUBE_HALF_SIZE * 1.7),
+                    &(&transform.position + &normal * cube::CUBE_HALF_SIZE),
+                    &(&transform.position + &normal * cube::CUBE_HALF_SIZE * 1.7),
                 );
 
-                candidate = Some(&cubePos + normal);
+                candidate = Some(&transform.position + normal);
             }
 
             // Render
@@ -292,7 +403,7 @@ fn main() {
 
             shader_program.setMat4(&view, "view");
             shader_program.setMat4(&proj, "projection");
-            shader_program.setMat4(&model, "model");
+            shader_program.setMat4(&transform.get_mat4(), "model");
 
             render_cube.draw();
         }
