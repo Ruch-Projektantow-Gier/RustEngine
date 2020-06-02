@@ -33,6 +33,11 @@ impl Texture {
             LoadResult::Error(_) => None,
             LoadResult::ImageU8(image) => {
                 let texture_image = image;
+                let mode = match &texture_image.depth {
+                    3 => gl::RGB,
+                    4 => gl::RGBA,
+                    _ => gl::RGB,
+                };
 
                 unsafe {
                     gl.GenTextures(1, &mut texture_id);
@@ -40,11 +45,11 @@ impl Texture {
                     gl.TexImage2D(
                         gl::TEXTURE_2D,
                         0,
-                        gl::RGB as i32,
+                        mode as i32,
                         texture_image.width as i32,
                         texture_image.height as i32,
                         0,
-                        gl::RGB,
+                        mode,
                         gl::UNSIGNED_BYTE,
                         texture_image.data.as_ptr() as *const gl::types::GLvoid,
                     );
@@ -89,7 +94,8 @@ impl Texture {
             );
 
             self.gl
-                .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+                .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            // or linear
         }
     }
 }

@@ -132,6 +132,7 @@ fn main() {
     texture::Texture::init(&gl); // anisotropic
 
     let texture = texture::Texture::new(&gl, "res/wall.jpg").unwrap();
+    // let texture = texture::Texture::new(&gl, "res/dirt.png").unwrap();
     let render_cube = primitives::build_cube(&gl);
     // let render_sphere = primitives::build_sphere(&gl);
 
@@ -152,7 +153,7 @@ fn main() {
     cubes.push(DoubleBuffered::new(TransformComponent {
         position: glm::vec3(0., 0., 0.),
         rotation: glm::quat_identity(),
-        scale: glm::vec3(1., 2., 1.),
+        scale: glm::vec3(1., 1., 1.),
     }));
 
     let mut candidate: Option<glm::Vec3> = None;
