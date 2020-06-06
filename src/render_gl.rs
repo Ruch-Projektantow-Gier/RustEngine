@@ -122,6 +122,15 @@ impl Program {
             );
         }
     }
+
+    pub fn setFloat(&self, val: f32, name: &'static str) {
+        let cstr_name = CString::new(name).unwrap();
+
+        unsafe {
+            self.gl
+                .Uniform1f(self.gl.GetUniformLocation(self.id, cstr_name.as_ptr()), val);
+        }
+    }
 }
 
 impl Drop for Program {

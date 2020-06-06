@@ -97,6 +97,8 @@ impl TransformComponent {
 fn main() {
     let width = 900;
     let height = 700;
+    let near = 0.1;
+    let far = 300.;
 
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
@@ -123,10 +125,6 @@ fn main() {
         video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
     }));
 
-    unsafe {
-        gl.Enable(gl::MULTISAMPLE);
-    }
-
     // Render
     let debug = debug::Debug::new(&gl);
     texture::Texture::init(&gl); // anisotropic
@@ -138,7 +136,107 @@ fn main() {
 
     unsafe {
         gl.Enable(gl::DEPTH_TEST);
+        gl.DepthMask(gl::TRUE);
+
+        gl.Enable(gl::CULL_FACE);
+        gl.CullFace(gl::BACK);
+        gl.FrontFace(gl::CW);
+
+        gl.Enable(gl::MULTISAMPLE);
     }
+
+    /////////////////////////////////////
+    type GlInt = gl::types::GLuint;
+
+    /* DEPTH MAP */
+    let mut depth_map_fbo: GlInt = 0;
+    let mut depth_map: GlInt = 0;
+
+    unsafe {
+        gl.GenBuffers(1, &mut depth_map_fbo);
+
+        gl.GenTextures(1, &mut depth_map);
+        gl.BindTexture(gl::TEXTURE_2D, depth_map);
+        gl.TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::DEPTH_COMPONENT as gl::types::GLint,
+            width as gl::types::GLint,
+            height as gl::types::GLint,
+            0,
+            gl::DEPTH_COMPONENT,
+            gl::FLOAT,
+            std::ptr::null(),
+        );
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_MIN_FILTER,
+            gl::NEAREST as gl::types::GLint,
+        );
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_MAG_FILTER,
+            gl::NEAREST as gl::types::GLint,
+        );
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_WRAP_S,
+            gl::CLAMP_TO_BORDER as gl::types::GLint,
+        );
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_WRAP_T,
+            gl::CLAMP_TO_BORDER as gl::types::GLint,
+        );
+        gl.TexParameterfv(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_BORDER_COLOR,
+            [1., 1., 1., 1.].as_ptr(),
+        );
+
+        gl.BindFramebuffer(gl::FRAMEBUFFER, depth_map_fbo);
+        gl.FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::DEPTH_ATTACHMENT,
+            gl::TEXTURE_2D,
+            depth_map,
+            0,
+        );
+        // gl.DrawBuffer(gl::NONE);
+        // gl.ReadBuffer(gl::NONE);
+        gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+    }
+
+    /* DEPTH Shader */
+    let depth_program = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/depth.vert"),
+        include_str!("shaders/depth.frag"),
+    )
+    .unwrap();
+
+    let depth_debug_program = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/depth_debug.vert"),
+        include_str!("shaders/depth_debug.frag"),
+    )
+    .unwrap();
+
+    // Projection quad
+    let screen_model_mat4 = &glm::one::<Mat4>() * glm::scaling(&glm::vec3(0.1, 0.1, 0.1));
+    depth_program.bind();
+    depth_program.setMat4(&screen_model_mat4, "model");
+
+    depth_debug_program.bind();
+    depth_debug_program.setFloat(near, "near");
+    depth_debug_program.setFloat(far, "far");
+
+    unsafe {
+        gl.Viewport(0, 0, width as gl::types::GLint, height as gl::types::GLint);
+        gl.ClearColor(0.1, 0.1, 0.1, 1.);
+    }
+
+    /////////////////////////////////////
 
     // Shader
     let shader_program = render_gl::Program::from_files(
@@ -154,6 +252,21 @@ fn main() {
         position: glm::vec3(0., 0., 0.),
         rotation: glm::quat_identity(),
         scale: glm::vec3(1., 1., 1.),
+    }));
+    cubes.push(DoubleBuffered::new(TransformComponent {
+        position: glm::vec3(2., 0., 0.),
+        rotation: glm::quat_identity(),
+        scale: glm::vec3(1., 1., 1.),
+    }));
+    cubes.push(DoubleBuffered::new(TransformComponent {
+        position: glm::vec3(2., 1., 0.),
+        rotation: glm::quat_identity(),
+        scale: glm::vec3(1., 1., 1.),
+    }));
+    cubes.push(DoubleBuffered::new(TransformComponent {
+        position: glm::vec3(0., -1., 0.),
+        rotation: glm::quat_identity(),
+        scale: glm::vec3(100., 1., 100.),
     }));
 
     let mut candidate: Option<glm::Vec3> = None;
@@ -323,24 +436,24 @@ fn main() {
             camera_pos += &camera_front * camera_speed * camera_movement[1] as f32;
 
             // Cubes
-            for transforms in &mut cubes {
-                let transform = transforms.get(&scene_buffer);
-
-                transforms.set(
-                    TransformComponent {
-                        position: transform.position,
-                        // rotation: transform.rotation + glm::vec3(0., 0.3, 0.),
-                        rotation: glm::quat_rotate(
-                            &transform.rotation,
-                            0.2,
-                            &glm::vec3(0., 1., 0.),
-                        ),
-                        scale: transform.scale,
-                    },
-                    &scene_buffer,
-                );
-            }
-            scene_buffer.swap();
+            // for transforms in &mut cubes {
+            //     let transform = transforms.get(&scene_buffer);
+            //
+            //     transforms.set(
+            //         TransformComponent {
+            //             position: transform.position,
+            //             // rotation: transform.rotation + glm::vec3(0., 0.3, 0.),
+            //             rotation: glm::quat_rotate(
+            //                 &transform.rotation,
+            //                 0.2,
+            //                 &glm::vec3(0., 1., 0.),
+            //             ),
+            //             scale: transform.scale,
+            //         },
+            //         &scene_buffer,
+            //     );
+            // }
+            // scene_buffer.swap();
 
             // update
             lag -= s_per_update;
@@ -349,65 +462,59 @@ fn main() {
         let alpha: f32 = lag / s_per_update;
 
         unsafe {
-            gl.Enable(gl::CULL_FACE);
-            gl.CullFace(gl::BACK);
-            gl.FrontFace(gl::CW);
+            // gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
+
+        // ************************* RENDERING **********************8**
+        // MATRIXES
+        let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
+        let proj = glm::perspective((width / height) as f32, 45.0, near, far);
+
+        // // Step 1: Render the depth of the scene to a depth map
+        // depth_program.bind();
+        // depth_program.setMat4(&view, "view");
+        // depth_program.setMat4(&proj, "projection");
+        //
+        // // Bind the depth map's frame buffer and draw the depth map to it
+        // unsafe {
+        //     gl.BindFramebuffer(gl::FRAMEBUFFER, depth_map_fbo);
+        //     // gl.Clear(gl::DEPTH_BUFFER_BIT);
+        //     gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        // }
+        //
+        // // RENDER BOX
+        // texture.bind();
+        // for cube in &cubes {
+        //     let transform = cube.get(&scene_buffer);
+        //     depth_program.setMat4(&transform.get_mat4(), "model");
+        //     render_cube.draw();
+        // }
+        //
+        // unsafe {
+        //     gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+        // }
+
+        // DEBUG DEPTH SHADER
+        unsafe {
+            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, 0);
 
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
-        // MATRIXES
-        let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
-        let proj = glm::perspective((width / height) as f32, 45.0, 0.1, 100.0);
-        let debug_drawer = debug.setup_drawer(&view, &proj);
-
-        // RENDER LINE
-        // let line_origin = &glm::vec3(-1.0, 0., 0.);
-        // let line_dest = &glm::vec3(1.0, 0., 0.);
-
-        let line_origin = &camera_pos;
-        let mut line_dest = &(&camera_pos + &camera_front * 3.);
-
-        // debug_drawer.draw(&line_dest, &line_origin);
-        // debug_drawer.draw(&glm::vec3(-1.0, -1., 0.), &line_origin);
-        // debug_drawer.draw(&glm::vec3(1.0, 1., 0.), &line_origin);
+        depth_debug_program.bind();
+        depth_debug_program.setMat4(&view, "view");
+        depth_debug_program.setMat4(&proj, "projection");
 
         // RENDER BOX
+        texture.bind();
         for cube in &cubes {
-            // println!("{}", alpha);
-
-            let transform = cube
-                .get(&scene_buffer)
-                .interpolate(cube.get_last(&scene_buffer), alpha);
-
-            // let transform = cube.get(&scene_buffer);
-
-            // Ray cast
-            let ray = cube::Ray::new(&line_origin, &(line_dest - line_origin).normalize());
-            let cube = cube::Cube::new(&transform.position);
-
-            let is_intersect = cube.is_intersect(&ray);
-            if is_intersect {
-                let (.., normal) = cube.get_intersect_face(&ray);
-
-                debug_drawer.draw(
-                    &(&transform.position + &normal * cube::CUBE_HALF_SIZE),
-                    &(&transform.position + &normal * cube::CUBE_HALF_SIZE * 1.7),
-                );
-
-                candidate = Some(&transform.position + normal);
-            }
-
-            // Render
-            shader_program.bind();
-            texture.bind();
-
-            shader_program.setMat4(&view, "view");
-            shader_program.setMat4(&proj, "projection");
-            shader_program.setMat4(&transform.get_mat4(), "model");
-
+            let transform = cube.get(&scene_buffer);
+            depth_debug_program.setMat4(&transform.get_mat4(), "model");
             render_cube.draw();
         }
+
+        // ************************* RENDERING **********************8**
 
         window.gl_swap_window();
     }
