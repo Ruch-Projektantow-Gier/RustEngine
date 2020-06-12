@@ -18,6 +18,16 @@ mod texture;
 type Mat4 = glm::Mat4;
 type Vec3f = glm::Vec3;
 
+struct PointLight {
+    color: glm::Vec4,
+    position: glm::Vec4,
+    padding_and_radius: glm::Vec4,
+}
+
+struct VisibleIndex {
+    index: i32,
+}
+
 struct SceneBuffer {
     is_first: bool,
 }
@@ -130,9 +140,8 @@ fn main() {
     texture::Texture::init(&gl); // anisotropic
 
     let texture = texture::Texture::new(&gl, "res/wall.jpg").unwrap();
-    // let texture = texture::Texture::new(&gl, "res/dirt.png").unwrap();
     let render_cube = primitives::build_cube(&gl);
-    // let render_sphere = primitives::build_sphere(&gl);
+    let quad = primitives::build_quad(&gl);
 
     unsafe {
         gl.Enable(gl::DEPTH_TEST);
@@ -140,17 +149,45 @@ fn main() {
 
         gl.Enable(gl::CULL_FACE);
         gl.CullFace(gl::BACK);
-        gl.FrontFace(gl::CW);
+        // gl.FrontFace(gl::CW);
 
         gl.Enable(gl::MULTISAMPLE);
     }
 
-    /////////////////////////////////////
+    /* Forward+ Rendering */
     type GlInt = gl::types::GLuint;
 
-    /* DEPTH MAP */
+    /* 1. Load shaders */
+    let depth_program = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/depth.vert"),
+        include_str!("shaders/depth.frag"),
+    )
+    .unwrap();
+
+    let light_culling_program = render_gl::Program::from_compute_shader_file(
+        &gl,
+        include_str!("shaders/light_culling.comp"),
+    )
+    .unwrap();
+
+    let light_accumulation_shader = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/light_accumulation.vert"),
+        include_str!("shaders/light_accumulation.frag"),
+    )
+    .unwrap();
+
+    let hdr_shader = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/hdr.vert"),
+        include_str!("shaders/hdr.frag"),
+    )
+    .unwrap();
+
+    /* 2. Depth map - framebuffer */
     let mut depth_map_fbo: GlInt = 0;
-    let mut depth_map: GlInt = 0;
+    let mut depth_map: GlInt = 0; // texture
 
     unsafe {
         gl.GenBuffers(1, &mut depth_map_fbo);
@@ -207,29 +244,135 @@ fn main() {
         gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
     }
 
-    /* DEPTH Shader */
-    let depth_program = render_gl::Program::from_files(
-        &gl,
-        include_str!("shaders/depth.vert"),
-        include_str!("shaders/depth.frag"),
-    )
-    .unwrap();
+    /* 3. HDR FBO */
+    let mut hdr_fbo: GlInt = 0;
+    let mut color_buffer: GlInt = 0;
+    let mut rbo_depth: GlInt = 0;
 
-    let depth_debug_program = render_gl::Program::from_files(
-        &gl,
-        include_str!("shaders/depth_debug.vert"),
-        include_str!("shaders/depth_debug.frag"),
-    )
-    .unwrap();
+    unsafe {
+        gl.GenFramebuffers(1, &mut hdr_fbo);
 
-    // Projection quad
+        // color buffer
+        gl.GenTextures(1, &mut color_buffer);
+        gl.BindTexture(gl::TEXTURE_2D, color_buffer);
+        gl.TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGB16F as gl::types::GLint,
+            width as gl::types::GLint,
+            height as gl::types::GLint,
+            0,
+            gl::RGB,
+            gl::FLOAT,
+            std::ptr::null(),
+        );
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_MIN_FILTER,
+            gl::LINEAR as gl::types::GLint,
+        );
+        gl.TexParameteri(
+            gl::TEXTURE_2D,
+            gl::TEXTURE_MAG_FILTER,
+            gl::LINEAR as gl::types::GLint,
+        );
+
+        // It will also need a depth component as a render buffer, attached to the hdrFBO
+        gl.GenRenderbuffers(1, &mut rbo_depth);
+        gl.BindRenderbuffer(gl::RENDERBUFFER, rbo_depth);
+        gl.RenderbufferStorage(
+            gl::RENDERBUFFER,
+            gl::DEPTH_COMPONENT,
+            width as gl::types::GLint,
+            height as gl::types::GLint,
+        );
+
+        gl.BindFramebuffer(gl::FRAMEBUFFER, hdr_fbo);
+        gl.FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            color_buffer,
+            0,
+        );
+        gl.FramebufferRenderbuffer(
+            gl::FRAMEBUFFER,
+            gl::DEPTH_ATTACHMENT,
+            gl::RENDERBUFFER,
+            rbo_depth,
+        );
+        gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+    }
+
+    /* 4. Light on scene */
+    let num_lights = 1;
+    let mut light_buffer: GlInt = 0;
+    let mut visible_light_indices_buffer: GlInt = 0;
+
+    // X and Y work group dimension variables for compute shader
+    let work_groups_x: GlInt = (width + (width % 16)) / 16;
+    let work_groups_y: GlInt = (height + (height % 16)) / 16;
+    let number_of_tiles = (work_groups_x * work_groups_y) as usize;
+
+    unsafe {
+        // Generate our shader storage buffers
+        gl.GenBuffers(1, &mut light_buffer);
+        gl.GenBuffers(1, &mut visible_light_indices_buffer);
+
+        // Bind light buffer
+        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, light_buffer);
+        gl.BufferData(
+            gl::SHADER_STORAGE_BUFFER,
+            (num_lights * std::mem::size_of::<PointLight>()) as gl::types::GLsizeiptr,
+            std::ptr::null(),
+            gl::DYNAMIC_DRAW,
+        );
+
+        // Bind visible light indices buffer
+        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, visible_light_indices_buffer);
+        gl.BufferData(
+            gl::SHADER_STORAGE_BUFFER,
+            (number_of_tiles * std::mem::size_of::<VisibleIndex>()  * 1024) // was 1024
+                as gl::types::GLsizeiptr,
+            std::ptr::null(),
+            gl::STATIC_DRAW,
+        );
+    }
+
+    // SetupLights
+    unsafe {
+        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, light_buffer);
+
+        let point_lights = std::slice::from_raw_parts_mut(
+            gl.MapBuffer(gl::SHADER_STORAGE_BUFFER, gl::READ_WRITE) as *mut PointLight,
+            num_lights,
+        );
+
+        for point in point_lights {
+            point.position = glm::vec4(-1., 0., 0., 1.0);
+            point.color = glm::vec4(1., 1., 1., 1.0);
+            point.padding_and_radius = glm::vec4(0., 0., 0., 1.0);
+        }
+
+        gl.UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
+        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, 0);
+
+        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, 0); // doubled (unnecessary)
+    }
+
+    /* 5. Projection quad */
     let screen_model_mat4 = &glm::one::<Mat4>() * glm::scaling(&glm::vec3(0.1, 0.1, 0.1));
+
     depth_program.bind();
     depth_program.setMat4(&screen_model_mat4, "model");
 
-    depth_debug_program.bind();
-    depth_debug_program.setFloat(near, "near");
-    depth_debug_program.setFloat(far, "far");
+    light_culling_program.bind();
+    light_culling_program.setInt(num_lights as i32, "lightCount");
+    light_culling_program.setVec2Int(&glm::vec2(width as i32, height as i32), "screenSize");
+
+    light_accumulation_shader.bind();
+    light_accumulation_shader.setMat4(&screen_model_mat4, "model");
+    light_accumulation_shader.setInt(work_groups_x as i32, "numberOfTilesX");
 
     unsafe {
         gl.Viewport(0, 0, width as gl::types::GLint, height as gl::types::GLint);
@@ -237,14 +380,6 @@ fn main() {
     }
 
     /////////////////////////////////////
-
-    // Shader
-    let shader_program = render_gl::Program::from_files(
-        &gl,
-        include_str!("triangle.vert"),
-        include_str!("triangle.frag"),
-    )
-    .unwrap();
 
     let mut scene_buffer = SceneBuffer::new();
     let mut cubes: Vec<DoubleBuffered<TransformComponent>> = vec![];
@@ -435,83 +570,93 @@ fn main() {
                 * camera_movement[0] as f32;
             camera_pos += &camera_front * camera_speed * camera_movement[1] as f32;
 
-            // Cubes
-            // for transforms in &mut cubes {
-            //     let transform = transforms.get(&scene_buffer);
-            //
-            //     transforms.set(
-            //         TransformComponent {
-            //             position: transform.position,
-            //             // rotation: transform.rotation + glm::vec3(0., 0.3, 0.),
-            //             rotation: glm::quat_rotate(
-            //                 &transform.rotation,
-            //                 0.2,
-            //                 &glm::vec3(0., 1., 0.),
-            //             ),
-            //             scale: transform.scale,
-            //         },
-            //         &scene_buffer,
-            //     );
-            // }
-            // scene_buffer.swap();
-
             // update
             lag -= s_per_update;
         }
 
         let alpha: f32 = lag / s_per_update;
 
-        unsafe {
-            // gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        }
-
         // ************************* RENDERING **********************8**
         // MATRIXES
-        let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
         let proj = glm::perspective((width / height) as f32, 45.0, near, far);
+        let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
 
-        // // Step 1: Render the depth of the scene to a depth map
-        // depth_program.bind();
-        // depth_program.setMat4(&view, "view");
-        // depth_program.setMat4(&proj, "projection");
-        //
-        // // Bind the depth map's frame buffer and draw the depth map to it
-        // unsafe {
-        //     gl.BindFramebuffer(gl::FRAMEBUFFER, depth_map_fbo);
-        //     // gl.Clear(gl::DEPTH_BUFFER_BIT);
-        //     gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-        // }
-        //
-        // // RENDER BOX
-        // texture.bind();
-        // for cube in &cubes {
-        //     let transform = cube.get(&scene_buffer);
-        //     depth_program.setMat4(&transform.get_mat4(), "model");
-        //     render_cube.draw();
-        // }
-        //
-        // unsafe {
-        //     gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
-        // }
+        // Step 1: Render the depth of the scene to a depth map
+        depth_program.bind();
+        depth_program.setMat4(&proj, "projection");
+        depth_program.setMat4(&view, "view");
 
-        // DEBUG DEPTH SHADER
+        // Bind the depth map's frame buffer and draw the depth map to it
         unsafe {
-            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
-            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, 0);
+            gl.BindFramebuffer(gl::FRAMEBUFFER, depth_map_fbo);
+            gl.Clear(gl::DEPTH_BUFFER_BIT);
 
-            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            for cube in &cubes {
+                let transform = cube.get(&scene_buffer);
+                depth_program.setMat4(&screen_model_mat4, "model");
+                render_cube.draw();
+            }
+
+            gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
 
-        depth_debug_program.bind();
-        depth_debug_program.setMat4(&view, "view");
-        depth_debug_program.setMat4(&proj, "projection");
+        // Step 2: Perform light culling on point lights in the scene
+        light_culling_program.bind();
+        light_culling_program.setMat4(&proj, "projection");
+        light_culling_program.setMat4(&view, "view");
+
+        unsafe {
+            // Bind depth map texture to texture location 4 (which will not be used by any model texture)
+            gl.ActiveTexture(gl::TEXTURE4);
+            light_culling_program.setInt(4, "depthMap");
+            gl.BindTexture(gl::TEXTURE_2D, depth_map);
+
+            // Bind shader storage buffer objects for the light and indice buffers
+            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, light_buffer);
+            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, visible_light_indices_buffer);
+
+            // Dispatch the compute shader, using the workgroup values calculated earlier
+            gl.DispatchCompute(work_groups_x, work_groups_y, 1);
+
+            // Unbind the depth map
+            gl.ActiveTexture(gl::TEXTURE4);
+            gl.BindTexture(gl::TEXTURE_2D, 0);
+        }
+
+        // Step 3: Accumulate the remaining lights after culling and render (or execute one of the debug views of a flag is enabled
+        unsafe {
+            gl.BindFramebuffer(gl::FRAMEBUFFER, hdr_fbo);
+            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+
+            light_accumulation_shader.bind();
+            light_accumulation_shader.setMat4(&proj, "projection");
+            light_accumulation_shader.setMat4(&view, "view");
+            light_accumulation_shader.setVec3Float(&camera_pos, "viewPosition");
+        }
 
         // RENDER BOX
-        texture.bind();
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
-            depth_debug_program.setMat4(&transform.get_mat4(), "model");
+            light_accumulation_shader.setMat4(&transform.get_mat4(), "model");
             render_cube.draw();
+        }
+
+        unsafe {
+            gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+        }
+
+        // Tonemap the HDR colors to the default framebuffer
+        unsafe {
+            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            hdr_shader.bind();
+            gl.ActiveTexture(gl::TEXTURE0);
+            gl.BindTexture(gl::TEXTURE_2D, color_buffer);
+            hdr_shader.setFloat(1.0, "exposure");
+
+            quad.draw();
+
+            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
+            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, 0);
         }
 
         // ************************* RENDERING **********************8**

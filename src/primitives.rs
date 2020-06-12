@@ -9,6 +9,13 @@ mod sphere;
 
 type GlInt = gl::types::GLuint;
 
+static QUAD: [f32; 20] = [
+    -1.0, 1.0, 0.0, 0.0, 1.0, //
+    -1.0, -1.0, 0.0, 0.0, 0.0, //
+    1.0, 1.0, 0.0, 1.0, 1.0, //
+    1.0, -1.0, 0.0, 1.0, 0.0, //
+];
+
 static CUBE: [f32; 288] = [
     // Back face
     -0.5, -0.5, -0.5, 0., 0., -1., 0.0, 0.0, // Bottom-left
@@ -180,7 +187,7 @@ impl Model {
         unsafe {
             self.gl.BindVertexArray(self.vao);
             // glDrawElements is for indicies
-            self.gl.DrawArrays(gl::TRIANGLES, 0, self.triangles);
+            self.gl.DrawArrays(gl::TRIANGLE_STRIP, 0, self.triangles);
             self.gl.BindVertexArray(0);
         }
     }
@@ -196,6 +203,14 @@ pub fn build_cube(gl: &gl::GlPtr) -> Model {
             3, /* normals */
             2, /* texture coords */
         ],
+    )
+}
+
+pub fn build_quad(gl: &gl::GlPtr) -> Model {
+    from_vertices(
+        &gl,
+        &QUAD.to_vec(),
+        &[3 /* verticles */, 2 /* texture coords */],
     )
 }
 

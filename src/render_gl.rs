@@ -27,6 +27,10 @@ impl Shader {
         Shader::from_source(gl, source, gl::FRAGMENT_SHADER)
     }
 
+    pub fn from_comp_source(gl: &gl::GlPtr, source: &CStr) -> Result<Shader, String> {
+        Shader::from_source(gl, source, gl::COMPUTE_SHADER)
+    }
+
     pub fn id(&self) -> gl::types::GLuint {
         self.id
     }
@@ -102,6 +106,12 @@ impl Program {
         Self::from_shaders(&gl, &[vert_shader, frag_shader])
     }
 
+    pub fn from_compute_shader_file(gl: &gl::GlPtr, path: &'static str) -> Result<Program, String> {
+        use std::ffi::CString;
+        let comp_shader = Shader::from_comp_source(&gl, &CString::new(path).unwrap())?;
+        Self::from_shaders(&gl, &[comp_shader])
+    }
+
     pub fn bind(&self) {
         unsafe { self.gl.UseProgram(self.id) }
     }
@@ -129,6 +139,39 @@ impl Program {
         unsafe {
             self.gl
                 .Uniform1f(self.gl.GetUniformLocation(self.id, cstr_name.as_ptr()), val);
+        }
+    }
+
+    pub fn setInt(&self, val: i32, name: &'static str) {
+        let cstr_name = CString::new(name).unwrap();
+
+        unsafe {
+            self.gl
+                .Uniform1i(self.gl.GetUniformLocation(self.id, cstr_name.as_ptr()), val);
+        }
+    }
+
+    pub fn setVec2Int(&self, val: &glm::I32Vec2, name: &'static str) {
+        let cstr_name = CString::new(name).unwrap();
+
+        unsafe {
+            self.gl.Uniform2iv(
+                self.gl.GetUniformLocation(self.id, cstr_name.as_ptr()),
+                1,
+                val.as_ptr(),
+            );
+        }
+    }
+
+    pub fn setVec3Float(&self, val: &glm::Vec3, name: &'static str) {
+        let cstr_name = CString::new(name).unwrap();
+
+        unsafe {
+            self.gl.Uniform3fv(
+                self.gl.GetUniformLocation(self.id, cstr_name.as_ptr()),
+                1,
+                val.as_ptr(),
+            );
         }
     }
 }
