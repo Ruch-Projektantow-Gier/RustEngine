@@ -100,13 +100,13 @@ impl Debug {
     fn gen_line_shader(gl: &gl::GlPtr) -> render_gl::Program {
         let vert_shader = render_gl::Shader::from_vert_source(
             &gl,
-            &CString::new(include_str!("ray.vert")).unwrap(),
+            &CString::new(include_str!("shaders/debug/ray.vert")).unwrap(),
         )
         .unwrap();
 
         let frag_shader = render_gl::Shader::from_frag_source(
             &gl,
-            &CString::new(include_str!("ray.frag")).unwrap(),
+            &CString::new(include_str!("shaders/debug/ray.frag")).unwrap(),
         )
         .unwrap();
 

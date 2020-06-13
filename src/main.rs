@@ -5,9 +5,9 @@ extern crate stb_image;
 use gl;
 // use imgui::*;
 
+use crate::texture::{Texture, TextureKind};
 use std::rc::Rc;
 use std::time::SystemTime;
-use crate::texture::TextureKind;
 
 mod cube;
 mod debug;
@@ -15,7 +15,6 @@ mod primitives;
 mod render_gl;
 mod sphere;
 mod texture;
-mod new_model;
 
 type Mat4 = glm::Mat4;
 type Vec3f = glm::Vec3;
@@ -137,259 +136,52 @@ fn main() {
         video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
     }));
 
-    // Render
-    let debug = debug::Debug::new(&gl);
-    texture::Texture::init(&gl); // anisotropic
-
-    let new_model_test = new_model::Model::load(&gl, "res/crytek-sponza/sponza.obj");
-
-
-    let diffuse_text = texture::Texture::new(&gl, "res/PavingStones067_2K-JPG/PavingStones067_2K_Color.jpg", TextureKind::Diffuse).unwrap();
-    let specular_text = texture::Texture::new(&gl, "res/PavingStones067_2K-JPG/PavingStones067_2K_Color.jpg", TextureKind::Specular).unwrap();
-    let normal_text = texture::Texture::new(&gl, "res/PavingStones067_2K-JPG/PavingStones067_2K_Normal.jpg", TextureKind::Normal).unwrap();
-
-    // let render_cube = primitives::build_cube(&gl, vec!(&diffuse_text, &specular_text, &normal_text));
-    let supplied_cube = primitives::compute_tangent_basis(&primitives::CUBE.to_vec());
-    let render_cube = primitives::create(
-        &gl,
-        &supplied_cube,
-        &[
-            3, /* verticles */
-            3, /* normals */
-            2, /* texture coords */
-            3, /* tangent */
-            3, /* bitangent */
-        ],
-        vec!(&diffuse_text, &specular_text, &normal_text)
-    );
-    let quad = primitives::build_quad(&gl);
-
     unsafe {
         gl.Enable(gl::DEPTH_TEST);
         gl.DepthMask(gl::TRUE);
 
+        gl.Enable(gl::CULL_FACE);
+        gl.FrontFace(gl::CW);
+
         gl.Enable(gl::MULTISAMPLE);
     }
+
+    /////////////////////////////////////
+    let debug = debug::Debug::new(&gl);
+    texture::Texture::init(&gl); // anisotropic
+
+    // let render_cube = primitives::build_cube(&gl, vec!(&diffuse_text, &specular_text, &normal_text));
+    // let supplied_cube = primitives::compute_tangent_basis(&primitives::CUBE.to_vec());
+    // let render_cube = primitives::create(
+    //     &gl,
+    //     &supplied_cube,
+    //     &[
+    //         3, /* verticles */
+    //         3, /* normals */
+    //         2, /* texture coords */
+    //         3, /* tangent */
+    //         3, /* bitangent */
+    //     ],
+    //     vec![],
+    // );
+    // let quad = primitives::build_quad(&gl);
+
+    let diffuse_texture =
+        Texture::new(&gl, "res/wall.jpg", TextureKind::Diffuse).expect("Cannot load texture");
+    let render_cube = primitives::build_cube(&gl, vec![&diffuse_texture]);
+
+    let basic_shader = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/basic/basic.vert"),
+        include_str!("shaders/basic/basic.frag"),
+    )
+    .unwrap();
 
     /* Forward+ Rendering */
     type GlInt = gl::types::GLuint;
 
-    /* 1. Load shaders */
-    let depth_program = render_gl::Program::from_files(
-        &gl,
-        include_str!("shaders/depth.vert"),
-        include_str!("shaders/depth.frag"),
-    )
-    .unwrap();
-
-    let light_culling_program = render_gl::Program::from_compute_shader_file(
-        &gl,
-        include_str!("shaders/light_culling.comp"),
-    )
-    .unwrap();
-
-    let light_accumulation_shader = render_gl::Program::from_files(
-        &gl,
-        include_str!("shaders/light_accumulation.vert"),
-        include_str!("shaders/light_accumulation.frag"),
-    )
-    .unwrap();
-
-    let hdr_shader = render_gl::Program::from_files(
-        &gl,
-        include_str!("shaders/hdr.vert"),
-        include_str!("shaders/hdr.frag"),
-    )
-    .unwrap();
-
-    /* 2. Depth map - framebuffer */
-    let mut depth_map_fbo: GlInt = 0;
-    let mut depth_map: GlInt = 0; // texture
-
-    unsafe {
-        gl.GenBuffers(1, &mut depth_map_fbo);
-
-        gl.GenTextures(1, &mut depth_map);
-        gl.BindTexture(gl::TEXTURE_2D, depth_map);
-        gl.TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::DEPTH_COMPONENT as gl::types::GLint,
-            width as gl::types::GLint,
-            height as gl::types::GLint,
-            0,
-            gl::DEPTH_COMPONENT,
-            gl::FLOAT,
-            std::ptr::null(),
-        );
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_MIN_FILTER,
-            gl::NEAREST as gl::types::GLint,
-        );
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_MAG_FILTER,
-            gl::NEAREST as gl::types::GLint,
-        );
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_WRAP_S,
-            gl::CLAMP_TO_BORDER as gl::types::GLint,
-        );
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_WRAP_T,
-            gl::CLAMP_TO_BORDER as gl::types::GLint,
-        );
-        gl.TexParameterfv(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_BORDER_COLOR,
-            [1., 1., 1., 1.].as_ptr(),
-        );
-
-        gl.BindFramebuffer(gl::FRAMEBUFFER, depth_map_fbo);
-        gl.FramebufferTexture2D(
-            gl::FRAMEBUFFER,
-            gl::DEPTH_ATTACHMENT,
-            gl::TEXTURE_2D,
-            depth_map,
-            0,
-        );
-        // gl.DrawBuffer(gl::NONE);
-        // gl.ReadBuffer(gl::NONE);
-        gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
-    }
-
-    /* 3. HDR FBO */
-    let mut hdr_fbo: GlInt = 0;
-    let mut color_buffer: GlInt = 0;
-    let mut rbo_depth: GlInt = 0;
-
-    unsafe {
-        gl.GenFramebuffers(1, &mut hdr_fbo);
-
-        // color buffer
-        gl.GenTextures(1, &mut color_buffer);
-        gl.BindTexture(gl::TEXTURE_2D, color_buffer);
-        gl.TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::RGB16F as gl::types::GLint,
-            width as gl::types::GLint,
-            height as gl::types::GLint,
-            0,
-            gl::RGB,
-            gl::FLOAT,
-            std::ptr::null(),
-        );
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_MIN_FILTER,
-            gl::LINEAR as gl::types::GLint,
-        );
-        gl.TexParameteri(
-            gl::TEXTURE_2D,
-            gl::TEXTURE_MAG_FILTER,
-            gl::LINEAR as gl::types::GLint,
-        );
-
-        // It will also need a depth component as a render buffer, attached to the hdrFBO
-        gl.GenRenderbuffers(1, &mut rbo_depth);
-        gl.BindRenderbuffer(gl::RENDERBUFFER, rbo_depth);
-        gl.RenderbufferStorage(
-            gl::RENDERBUFFER,
-            gl::DEPTH_COMPONENT,
-            width as gl::types::GLint,
-            height as gl::types::GLint,
-        );
-
-        gl.BindFramebuffer(gl::FRAMEBUFFER, hdr_fbo);
-        gl.FramebufferTexture2D(
-            gl::FRAMEBUFFER,
-            gl::COLOR_ATTACHMENT0,
-            gl::TEXTURE_2D,
-            color_buffer,
-            0,
-        );
-        gl.FramebufferRenderbuffer(
-            gl::FRAMEBUFFER,
-            gl::DEPTH_ATTACHMENT,
-            gl::RENDERBUFFER,
-            rbo_depth,
-        );
-        gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
-    }
-
-    /* 4. Light on scene */
-    let num_lights = 1;
-    let mut light_buffer: GlInt = 0;
-    let mut visible_light_indices_buffer: GlInt = 0;
-
-    // X and Y work group dimension variables for compute shader
-    let work_groups_x: GlInt = (width + (width % 16)) / 16;
-    let work_groups_y: GlInt = (height + (height % 16)) / 16;
-    let number_of_tiles = (work_groups_x * work_groups_y) as usize;
-
-    unsafe {
-        // Generate our shader storage buffers
-        gl.GenBuffers(1, &mut light_buffer);
-        gl.GenBuffers(1, &mut visible_light_indices_buffer);
-
-        // Bind light buffer
-        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, light_buffer);
-        gl.BufferData(
-            gl::SHADER_STORAGE_BUFFER,
-            (num_lights * std::mem::size_of::<PointLight>()) as gl::types::GLsizeiptr,
-            std::ptr::null(),
-            gl::DYNAMIC_DRAW,
-        );
-
-        // Bind visible light indices buffer
-        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, visible_light_indices_buffer);
-        gl.BufferData(
-            gl::SHADER_STORAGE_BUFFER,
-            (number_of_tiles * std::mem::size_of::<VisibleIndex>()  * 1024) // was 1024
-                as gl::types::GLsizeiptr,
-            std::ptr::null(),
-            gl::STATIC_DRAW,
-        );
-    }
-
-    // SetupLights
-    unsafe {
-        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, light_buffer);
-
-        let point_lights = std::slice::from_raw_parts_mut(
-            gl.MapBuffer(gl::SHADER_STORAGE_BUFFER, gl::READ_WRITE) as *mut PointLight,
-            num_lights,
-        );
-
-        for point in point_lights {
-            point.position = glm::vec4(0., 2., 0., 1.0);
-            point.color = glm::vec4(1., 1., 1., 1.0);
-            point.padding_and_radius = glm::vec4(0., 0., 0., 20.0);
-        }
-
-        gl.UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
-        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, 0);
-
-        gl.BindBuffer(gl::SHADER_STORAGE_BUFFER, 0); // doubled (unnecessary)
-    }
-
     /* 5. Projection quad */
-    let screen_model_mat4 = &glm::one::<Mat4>() * glm::scaling(&glm::vec3(0.1, 0.1, 0.1));
-
-    depth_program.bind();
-    depth_program.setMat4(&screen_model_mat4, "model");
-
-    light_culling_program.bind();
-    light_culling_program.setInt(num_lights as i32, "lightCount");
-    light_culling_program.setVec2Int(&glm::vec2(width as i32, height as i32), "screenSize");
-
-    light_accumulation_shader.bind();
-    light_accumulation_shader.setMat4(&screen_model_mat4, "model");
-    light_accumulation_shader.setInt(work_groups_x as i32, "numberOfTilesX");
+    // let screen_model_mat4 = &glm::one::<Mat4>() * glm::scaling(&glm::vec3(0.1, 0.1, 0.1));
 
     unsafe {
         gl.Viewport(0, 0, width as gl::types::GLint, height as gl::types::GLint);
@@ -398,6 +190,7 @@ fn main() {
 
     /////////////////////////////////////
 
+    // Cubes
     let mut scene_buffer = SceneBuffer::new();
     let mut cubes: Vec<DoubleBuffered<TransformComponent>> = vec![];
     cubes.push(DoubleBuffered::new(TransformComponent {
@@ -426,13 +219,7 @@ fn main() {
         scale: glm::vec3(100., 1., 100.),
     }));
 
-    let mut candidate: Option<glm::Vec3> = None;
-
-    // props
-    let s_per_update = 1.0 / 30.0;
-    let mut previous = SystemTime::now();
-    let mut lag = 0.0;
-
+    // Camera
     let camera_speed = 0.1;
     let mut camera_pos = glm::vec3(0., 0., 3.);
     let mut camera_front = glm::vec3(0., 0., -1.);
@@ -440,12 +227,18 @@ fn main() {
     let mut camera_movement = glm::vec2(0, 0);
 
     let mut last_cursor_coords = glm::vec2(0 as i32, 0 as i32);
+    let mut is_camera_movement = false;
 
     let mut cam_sensitive = 0.1;
     let mut yaw = 0.0; // y
     let mut pitch = 0.0; // x
 
-    let mut is_camera_movement = false;
+    // Time
+    let s_per_update = 1.0 / 30.0;
+    let mut previous = SystemTime::now();
+    let mut lag = 0.0;
+
+    // Events
     let mut event_pump = sdl.event_pump().unwrap();
 
     'main: loop {
@@ -599,96 +392,23 @@ fn main() {
         let alpha: f32 = lag / s_per_update;
 
         // ************************* RENDERING **********************8**
+        unsafe {
+            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
+
         // MATRIXES
         let proj = glm::perspective((width / height) as f32, 45.0, near, far);
         let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
 
-        unsafe {
-            gl.Enable(gl::CULL_FACE);
-            // gl.CullFace(gl::FRONT);
-            // gl.FrontFace(gl::CCW);
-        }
-
         // Step 1: Render the depth of the scene to a depth map
-        depth_program.bind();
-        depth_program.setMat4(&proj, "projection");
-        depth_program.setMat4(&view, "view");
+        basic_shader.bind();
+        basic_shader.setMat4(&proj, "projection");
+        basic_shader.setMat4(&view, "view");
 
-        // Bind the depth map's frame buffer and draw the depth map to it
-        unsafe {
-            gl.BindFramebuffer(gl::FRAMEBUFFER, depth_map_fbo);
-            gl.Clear(gl::DEPTH_BUFFER_BIT);
-
-            for cube in &cubes {
-                let transform = cube.get(&scene_buffer);
-                depth_program.setMat4(&transform.get_mat4(), "model");
-                render_cube.draw(&depth_program);
-            }
-
-            gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
-        }
-
-        // Step 2: Perform light culling on point lights in the scene
-        light_culling_program.bind();
-        light_culling_program.setMat4(&proj, "projection");
-        light_culling_program.setMat4(&view, "view");
-
-        unsafe {
-            // Bind depth map texture to texture location 4 (which will not be used by any model texture)
-            gl.ActiveTexture(gl::TEXTURE4);
-            light_culling_program.setInt(4, "depthMap");
-            gl.BindTexture(gl::TEXTURE_2D, depth_map);
-
-            // Bind shader storage buffer objects for the light and indice buffers
-            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, light_buffer);
-            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, visible_light_indices_buffer);
-
-            // Dispatch the compute shader, using the workgroup values calculated earlier
-            gl.DispatchCompute(work_groups_x, work_groups_y, 1);
-
-            // Unbind the depth map
-            gl.ActiveTexture(gl::TEXTURE4);
-            gl.BindTexture(gl::TEXTURE_2D, 0);
-        }
-
-        // Step 3: Accumulate the remaining lights after culling and render (or execute one of the debug views of a flag is enabled
-        unsafe {
-            gl.BindFramebuffer(gl::FRAMEBUFFER, hdr_fbo);
-            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-
-            light_accumulation_shader.bind();
-            light_accumulation_shader.setMat4(&proj, "projection");
-            light_accumulation_shader.setMat4(&view, "view");
-            light_accumulation_shader.setVec3Float(&camera_pos, "viewPosition");
-        }
-
-        // RENDER BOX
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
-            light_accumulation_shader.setMat4(&transform.get_mat4(), "model");
-            render_cube.draw(&light_accumulation_shader);
-        }
-
-        unsafe {
-            gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
-        }
-
-        unsafe {
-            gl.Disable(gl::CULL_FACE);
-        }
-
-        // Tonemap the HDR colors to the default framebuffer
-        unsafe {
-            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-            hdr_shader.bind();
-            gl.ActiveTexture(gl::TEXTURE0);
-            gl.BindTexture(gl::TEXTURE_2D, color_buffer);
-            hdr_shader.setFloat(1.0, "exposure");
-
-            quad.raw_draw(gl::TRIANGLE_STRIP);
-
-            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
-            gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, 0);
+            basic_shader.setMat4(&transform.get_mat4(), "model");
+            render_cube.draw(&basic_shader);
         }
 
         // ************************* RENDERING **********************8**
