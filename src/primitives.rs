@@ -1,6 +1,9 @@
 extern crate nalgebra_glm as glm;
 use gl;
 use std::ffi::*;
+use crate::render_gl::{Shader, Program};
+use crate::texture::{Texture, TextureKind};
+use crate::texture;
 
 #[path = "render_gl.rs"]
 mod render_gl;
@@ -16,9 +19,9 @@ static QUAD: [f32; 20] = [
     1.0, -1.0, 0.0, 1.0, 0.0, //
 ];
 
-static CUBE: [f32; 288] = [
+pub static CUBE: [f32; 288] = [
     // Back face
-    -0.5, -0.5, -0.5, 0., 0., -1., 0.0, 0.0, // Bottom-left
+    -0.5, -0.5, -0.5, /* normal */ 0., 0., -1., /* uv */  0.0, 0.0, // Bottom-left
     0.5, -0.5, -0.5, 0., 0., -1., 1.0, 0.0, // bottom-right
     0.5, 0.5, -0.5, 0., 0., -1., 1.0, 1.0, // top-right
     0.5, 0.5, -0.5, 0., 0., -1., 1.0, 1.0, // top-right
@@ -61,7 +64,7 @@ static CUBE: [f32; 288] = [
     -0.5, 0.5, -0.5, 0., 1., 0., 0.0, 1.0, // top-left
 ];
 
-pub struct Model {
+pub struct Model<'a> {
     gl: gl::GlPtr,
 
     vao: GlInt,
@@ -69,6 +72,8 @@ pub struct Model {
     ebo: GlInt,
 
     triangles: i32,
+
+    textures: Vec<&'a Texture>,
 }
 
 fn setup_vertex_attrib(gl: &gl::GlPtr, locations: &[i32]) {
@@ -158,7 +163,7 @@ where
     vao
 }
 
-pub fn from_vertices(gl: &gl::GlPtr, vertices: &Vec<f32>, locations: &[i32]) -> Model {
+pub fn create<'a>(gl: &gl::GlPtr, vertices: &Vec<f32>, locations: &[i32], textures: Vec<&'a Texture>) -> Model<'a> {
     let mut triangles = vertices.len() as i32;
     let stride: i32 = locations.iter().sum();
 
@@ -179,23 +184,68 @@ pub fn from_vertices(gl: &gl::GlPtr, vertices: &Vec<f32>, locations: &[i32]) -> 
         vbo,
         ebo: 0,
         triangles,
+        textures
     }
 }
 
-impl Model {
-    pub fn draw(&self) {
+impl Model<'_> {
+    pub fn raw_draw(&self, mode: gl::types::GLenum) {
         unsafe {
             self.gl.BindVertexArray(self.vao);
-            // glDrawElements is for indicies
-            self.gl.DrawArrays(gl::TRIANGLE_STRIP, 0, self.triangles);
+
+            if self.ebo != 0 {
+                self.gl.DrawElements(mode, self.triangles, gl::UNSIGNED_INT, std::ptr::null());
+            } else {
+                self.gl.DrawArrays(mode, 0, self.triangles);
+            }
+
             self.gl.BindVertexArray(0);
+        }
+    }
+
+    pub fn draw(&self, shader: &Program) {
+        self.bind_textures_to(&shader);
+        self.raw_draw(gl::TRIANGLES);
+        self.unbind_textures_from(&shader);
+    }
+
+    pub fn bind_textures_to(&self, shader: &Program) {
+        let mut diffuse_number = 1;
+        let mut specular_number = 1;
+        let mut normal_number = 1;
+        let mut height_number = 1;
+
+        for (i, texture) in self.textures.iter().enumerate() {
+            unsafe {
+                self.gl.ActiveTexture(gl::TEXTURE0 + i as u32);
+
+                match texture.kind {
+                    TextureKind::Diffuse => { diffuse_number += 1 },
+                    TextureKind::Specular => { specular_number += 1 },
+                    TextureKind::Normal => { normal_number += 1 },
+                    TextureKind::Height => { height_number += 1 },
+                }
+
+
+                shader.setInt(i as i32, &format!("{}{}", texture.kind.as_str(), i));
+                texture.bind();
+            }
+        }
+    }
+
+    fn unbind_textures_from(&self, shader: &Program) {
+        for (i, texture) in self.textures.iter().enumerate() {
+            unsafe {
+                self.gl.ActiveTexture(gl::TEXTURE0 + i as u32);
+                self.gl.BindTexture(gl::TEXTURE_2D, 0);
+            }
         }
     }
 }
 
 /* primitives */
-pub fn build_cube(gl: &gl::GlPtr) -> Model {
-    from_vertices(
+pub fn build_cube<'a>(gl: &gl::GlPtr, textures: Vec<&'a Texture>) -> Model<'a> {
+    create(
         &gl,
         &CUBE.to_vec(),
         &[
@@ -203,17 +253,152 @@ pub fn build_cube(gl: &gl::GlPtr) -> Model {
             3, /* normals */
             2, /* texture coords */
         ],
+        textures
     )
 }
 
+// http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-13-normal-mapping/#computing-the-tangents-and-bitangents
+pub fn compute_tangent_basis(vertices: &Vec<f32>) -> Vec<f32> {
+    let mut vertices_supplied = vec![];
+    let stride = 8;
+
+    let get_vertices = |index: usize| {
+        let offset = index * stride;
+        glm::vec3(vertices[offset], vertices[offset + 1], vertices[offset+2])
+    };
+
+    let get_normals = |index: usize| {
+        let offset = index * stride + 3;
+        glm::vec3(vertices[offset], vertices[offset + 1], vertices[offset+2])
+    };
+
+    let get_uvs = |index: usize| {
+        let offset = index * stride + 6;
+        glm::vec2(vertices[offset], vertices[offset + 1])
+    };
+
+    let mut i = 0;
+    while i < vertices.len() / 8 {
+        // unnecessary here but... i need to join arrays
+        let n0 = get_normals(i);
+        let n1 = get_normals(i+1);
+        let n2 = get_normals(i+2);
+
+        let v0 = get_vertices(i);
+        let v1 = get_vertices(i+1);
+        let v2 = get_vertices(i+2);
+
+        let uv0 = get_uvs(i);
+        let uv1 = get_uvs(i+1);
+        let uv2 = get_uvs(i+2);
+
+        // Edges of the triangle : position delta
+        let delta_pos_1 = &v1 - &v0;
+        let delta_pos_2 = &v2 - &v0;
+
+        // UV delta
+        let delta_uv_1 = &uv1 - &uv0;
+        let delta_uv_2 = &uv2 - &uv0;
+
+        let r = 1.0 / (delta_uv_1.x * delta_uv_2.y - delta_uv_1.y * delta_uv_2.x);
+        let tangent = (delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y) * r;
+        let bitangent = (delta_pos_2 * delta_uv_1.x - delta_pos_1 * delta_uv_2.x) * r;
+
+        let mut s0 = vec![v0.x, v0.y, v0.z, n0.x, n0.y, n0.z, uv0.x, uv0.y, tangent.x, tangent.y, tangent.z, bitangent.x, bitangent.y, bitangent.z];
+        let mut s1 = vec![v1.x, v1.y, v1.z, n1.x, n1.y, n1.z, uv1.x, uv1.y, tangent.x, tangent.y, tangent.z, bitangent.x, bitangent.y, bitangent.z];
+        let mut s2 = vec![v2.x, v2.y, v2.z, n2.x, n2.y, n2.z, uv2.x, uv2.y, tangent.x, tangent.y, tangent.z, bitangent.x, bitangent.y, bitangent.z];
+
+        vertices_supplied.append(&mut s0);
+        vertices_supplied.append(&mut s1);
+        vertices_supplied.append(&mut s2);
+
+        i += 3
+    }
+
+    vertices_supplied
+}
+
+pub fn compute_tangent(indices: &Vec<u32>, vertices: &Vec<glm::Vec3>, uvs: &Vec<glm::Vec2>) -> (Vec<glm::Vec3>, Vec<glm::Vec3>) {
+    let mut tangents = vec![];
+    let mut bitangents = vec![];
+
+    for index in indices.chunks(3) {
+        let v0 = &vertices[index[0] as usize];
+        let v1 = &vertices[index[1] as usize];
+        let v2 = &vertices[index[2] as usize];
+
+        let uv0 = &uvs[index[0] as usize];
+        let uv1 = &uvs[index[1] as usize];
+        let uv2 = &uvs[index[2] as usize];
+
+        // Edges of the triangle : position delta
+        let delta_pos_1 = v1 - v0;
+        let delta_pos_2 = v2 - v0;
+
+        // UV delta
+        let delta_uv_1 = uv1 - uv0;
+        let delta_uv_2 = uv2 - uv0;
+
+        let r = 1.0 / (delta_uv_1.x * delta_uv_2.y - delta_uv_1.y * delta_uv_2.x);
+        let tangent = (delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y) * r;
+        let bitangent = (delta_pos_2 * delta_uv_1.x - delta_pos_1 * delta_uv_2.x) * r;
+
+        tangents.push(tangent);
+        tangents.push(tangent);
+        tangents.push(tangent);
+
+        bitangents.push(bitangent);
+        bitangents.push(bitangent);
+        bitangents.push(bitangent);
+    }
+
+    // let mut i = 0;
+    // while i < indices.len() {
+    //     let index0 = indices;
+    //
+    //     let v0 = &vertices[i];
+    //     let v1 = &vertices[i+1];
+    //     let v2 = &vertices[i+2];
+    //
+    //     let uv0 = &uvs[i];
+    //     let uv1 = &uvs[i+1];
+    //     let uv2 = &uvs[i+2];
+    //
+    //     // Edges of the triangle : position delta
+    //     let delta_pos_1 = v1 - v0;
+    //     let delta_pos_2 = v2 - v0;
+    //
+    //     // UV delta
+    //     let delta_uv_1 = uv1 - uv0;
+    //     let delta_uv_2 = uv2 - uv0;
+    //
+    //     let r = 1.0 / (delta_uv_1.x * delta_uv_2.y - delta_uv_1.y * delta_uv_2.x);
+    //     let tangent = (delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y) * r;
+    //     let bitangent = (delta_pos_2 * delta_uv_1.x - delta_pos_1 * delta_uv_2.x) * r;
+    //
+    //     tangents.push(tangent);
+    //     tangents.push(tangent);
+    //     tangents.push(tangent);
+    //
+    //     bitangents.push(bitangent);
+    //     bitangents.push(bitangent);
+    //     bitangents.push(bitangent);
+    //
+    //     i += 3
+    // }
+
+    (tangents, bitangents)
+}
+
 pub fn build_quad(gl: &gl::GlPtr) -> Model {
-    from_vertices(
+    create(
         &gl,
         &QUAD.to_vec(),
         &[3 /* verticles */, 2 /* texture coords */],
+        vec![]
     )
 }
 
 pub fn build_sphere(gl: &gl::GlPtr) -> Model {
-    from_vertices(&gl, &sphere::gen_sphere_vertices(10), &[3 /* verticles */])
+    create(&gl, &sphere::gen_sphere_vertices(10), &[3 /* verticles */], vec![])
 }

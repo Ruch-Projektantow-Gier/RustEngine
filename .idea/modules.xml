@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/../rustVoxelEngine/.idea/RustVoxelEngine.iml" filepath="$PROJECT_DIR$/../rustVoxelEngine/.idea/RustVoxelEngine.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/RustVoxelEngine.iml" filepath="$PROJECT_DIR$/.idea/RustVoxelEngine.iml" />
     </modules>
   </component>
 </project>

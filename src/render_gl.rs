@@ -133,7 +133,7 @@ impl Program {
         }
     }
 
-    pub fn setFloat(&self, val: f32, name: &'static str) {
+    pub fn setFloat(&self, val: f32, name: &str) {
         let cstr_name = CString::new(name).unwrap();
 
         unsafe {
@@ -142,7 +142,7 @@ impl Program {
         }
     }
 
-    pub fn setInt(&self, val: i32, name: &'static str) {
+    pub fn setInt(&self, val: i32, name: &str) {
         let cstr_name = CString::new(name).unwrap();
 
         unsafe {
@@ -151,7 +151,7 @@ impl Program {
         }
     }
 
-    pub fn setVec2Int(&self, val: &glm::I32Vec2, name: &'static str) {
+    pub fn setVec2Int(&self, val: &glm::I32Vec2, name: &str) {
         let cstr_name = CString::new(name).unwrap();
 
         unsafe {
@@ -163,7 +163,7 @@ impl Program {
         }
     }
 
-    pub fn setVec3Float(&self, val: &glm::Vec3, name: &'static str) {
+    pub fn setVec3Float(&self, val: &glm::Vec3, name: &str) {
         let cstr_name = CString::new(name).unwrap();
 
         unsafe {

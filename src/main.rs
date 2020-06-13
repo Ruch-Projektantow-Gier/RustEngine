@@ -7,6 +7,7 @@ use gl;
 
 use std::rc::Rc;
 use std::time::SystemTime;
+use crate::texture::TextureKind;
 
 mod cube;
 mod debug;
@@ -14,6 +15,7 @@ mod primitives;
 mod render_gl;
 mod sphere;
 mod texture;
+mod new_model;
 
 type Mat4 = glm::Mat4;
 type Vec3f = glm::Vec3;
@@ -139,17 +141,32 @@ fn main() {
     let debug = debug::Debug::new(&gl);
     texture::Texture::init(&gl); // anisotropic
 
-    let texture = texture::Texture::new(&gl, "res/wall.jpg").unwrap();
-    let render_cube = primitives::build_cube(&gl);
+    let new_model_test = new_model::Model::load(&gl, "res/crytek-sponza/sponza.obj");
+
+
+    let diffuse_text = texture::Texture::new(&gl, "res/PavingStones067_2K-JPG/PavingStones067_2K_Color.jpg", TextureKind::Diffuse).unwrap();
+    let specular_text = texture::Texture::new(&gl, "res/PavingStones067_2K-JPG/PavingStones067_2K_Color.jpg", TextureKind::Specular).unwrap();
+    let normal_text = texture::Texture::new(&gl, "res/PavingStones067_2K-JPG/PavingStones067_2K_Normal.jpg", TextureKind::Normal).unwrap();
+
+    // let render_cube = primitives::build_cube(&gl, vec!(&diffuse_text, &specular_text, &normal_text));
+    let supplied_cube = primitives::compute_tangent_basis(&primitives::CUBE.to_vec());
+    let render_cube = primitives::create(
+        &gl,
+        &supplied_cube,
+        &[
+            3, /* verticles */
+            3, /* normals */
+            2, /* texture coords */
+            3, /* tangent */
+            3, /* bitangent */
+        ],
+        vec!(&diffuse_text, &specular_text, &normal_text)
+    );
     let quad = primitives::build_quad(&gl);
 
     unsafe {
         gl.Enable(gl::DEPTH_TEST);
         gl.DepthMask(gl::TRUE);
-
-        gl.Enable(gl::CULL_FACE);
-        gl.CullFace(gl::BACK);
-        // gl.FrontFace(gl::CW);
 
         gl.Enable(gl::MULTISAMPLE);
     }
@@ -349,9 +366,9 @@ fn main() {
         );
 
         for point in point_lights {
-            point.position = glm::vec4(-1., 0., 0., 1.0);
+            point.position = glm::vec4(0., 2., 0., 1.0);
             point.color = glm::vec4(1., 1., 1., 1.0);
-            point.padding_and_radius = glm::vec4(0., 0., 0., 1.0);
+            point.padding_and_radius = glm::vec4(0., 0., 0., 20.0);
         }
 
         gl.UnmapBuffer(gl::SHADER_STORAGE_BUFFER);
@@ -383,6 +400,11 @@ fn main() {
 
     let mut scene_buffer = SceneBuffer::new();
     let mut cubes: Vec<DoubleBuffered<TransformComponent>> = vec![];
+    cubes.push(DoubleBuffered::new(TransformComponent {
+        position: glm::vec3(0., 2., 0.),
+        rotation: glm::quat_identity(),
+        scale: glm::vec3(0.1, 0.1, 0.1),
+    }));
     cubes.push(DoubleBuffered::new(TransformComponent {
         position: glm::vec3(0., 0., 0.),
         rotation: glm::quat_identity(),
@@ -581,6 +603,12 @@ fn main() {
         let proj = glm::perspective((width / height) as f32, 45.0, near, far);
         let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
 
+        unsafe {
+            gl.Enable(gl::CULL_FACE);
+            // gl.CullFace(gl::FRONT);
+            // gl.FrontFace(gl::CCW);
+        }
+
         // Step 1: Render the depth of the scene to a depth map
         depth_program.bind();
         depth_program.setMat4(&proj, "projection");
@@ -593,8 +621,8 @@ fn main() {
 
             for cube in &cubes {
                 let transform = cube.get(&scene_buffer);
-                depth_program.setMat4(&screen_model_mat4, "model");
-                render_cube.draw();
+                depth_program.setMat4(&transform.get_mat4(), "model");
+                render_cube.draw(&depth_program);
             }
 
             gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
@@ -638,11 +666,15 @@ fn main() {
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
             light_accumulation_shader.setMat4(&transform.get_mat4(), "model");
-            render_cube.draw();
+            render_cube.draw(&light_accumulation_shader);
         }
 
         unsafe {
             gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+        }
+
+        unsafe {
+            gl.Disable(gl::CULL_FACE);
         }
 
         // Tonemap the HDR colors to the default framebuffer
@@ -653,7 +685,7 @@ fn main() {
             gl.BindTexture(gl::TEXTURE_2D, color_buffer);
             hdr_shader.setFloat(1.0, "exposure");
 
-            quad.draw();
+            quad.raw_draw(gl::TRIANGLE_STRIP);
 
             gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 0, 0);
             gl.BindBufferBase(gl::SHADER_STORAGE_BUFFER, 1, 0);
