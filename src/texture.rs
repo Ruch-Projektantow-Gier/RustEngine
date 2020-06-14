@@ -10,11 +10,12 @@ type Path = std::ffi::OsStr;
 
 static mut MAX_TEXTURE_FILTERING: f32 = 0.;
 
+#[derive(Copy, Clone)]
 pub enum TextureKind {
     Diffuse,
     Specular,
     Normal,
-    Height
+    Height,
 }
 
 impl TextureKind {
@@ -30,8 +31,7 @@ impl TextureKind {
 
 pub struct Texture {
     gl: gl::GlPtr,
-    pub kind: TextureKind,
-    id: u32,
+    pub id: u32,
 }
 
 impl Texture {
@@ -44,7 +44,46 @@ impl Texture {
         }
     }
 
-    pub fn new<P>(gl: &gl::GlPtr, path: P, kind: TextureKind) -> Option<Texture> where
+    pub fn new(gl: &gl::GlPtr, width: u32, height: u32) -> Texture {
+        let mut texture_id: u32 = 0;
+
+        unsafe {
+            gl.GenTextures(1, &mut texture_id);
+            gl.BindTexture(gl::TEXTURE_2D, texture_id);
+            gl.TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGB as gl::types::GLint,
+                width as gl::types::GLint,
+                height as gl::types::GLint,
+                0,
+                gl::RGB,
+                gl::UNSIGNED_BYTE,
+                std::ptr::null() as *const gl::types::GLvoid,
+            );
+
+            gl.TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
+                gl::LINEAR as gl::types::GLint,
+            );
+            gl.TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAG_FILTER,
+                gl::LINEAR as gl::types::GLint,
+            );
+
+            gl.BindTexture(gl::TEXTURE_2D, 0);
+        }
+
+        Texture {
+            gl: gl.clone(),
+            id: texture_id,
+        }
+    }
+
+    pub fn from<P>(gl: &gl::GlPtr, path: P) -> Option<Texture>
+    where
         P: AsRef<Path> + std::convert::AsRef<std::path::Path>,
     {
         let texture_load_result = stb_image::image::load(path);
@@ -87,7 +126,7 @@ impl Texture {
                         gl::TEXTURE_WRAP_S,
                         gl::MIRRORED_REPEAT as i32,
                     );
-                   gl.TexParameteri(
+                    gl.TexParameteri(
                         gl::TEXTURE_2D,
                         gl::TEXTURE_WRAP_T,
                         gl::MIRRORED_REPEAT as i32,
@@ -106,7 +145,6 @@ impl Texture {
 
                 Some(Texture {
                     gl: gl.clone(),
-                    kind,
                     id: texture_id,
                 })
             }

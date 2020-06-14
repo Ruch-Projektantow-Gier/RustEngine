@@ -150,7 +150,6 @@ fn main() {
     let debug = debug::Debug::new(&gl);
     texture::Texture::init(&gl); // anisotropic
 
-    // let render_cube = primitives::build_cube(&gl, vec!(&diffuse_text, &specular_text, &normal_text));
     // let supplied_cube = primitives::compute_tangent_basis(&primitives::CUBE.to_vec());
     // let render_cube = primitives::create(
     //     &gl,
@@ -164,11 +163,10 @@ fn main() {
     //     ],
     //     vec![],
     // );
-    // let quad = primitives::build_quad(&gl);
+    //
 
-    let diffuse_texture =
-        Texture::new(&gl, "res/wall.jpg", TextureKind::Diffuse).expect("Cannot load texture");
-    let render_cube = primitives::build_cube(&gl, vec![&diffuse_texture]);
+    let diffuse_texture = Texture::from(&gl, "res/wall.jpg").expect("Cannot load texture");
+    let render_cube = primitives::build_cube(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
 
     let basic_shader = render_gl::Program::from_files(
         &gl,
@@ -177,10 +175,72 @@ fn main() {
     )
     .unwrap();
 
-    /* Forward+ Rendering */
+    let screen_shader = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/screen/screen.vert"),
+        include_str!("shaders/screen/screen.frag"),
+    )
+    .unwrap();
+
+    /* Lights Rendering */
     type GlInt = gl::types::GLuint;
 
-    /* 5. Projection quad */
+    // Framebuffer
+    let mut fbo: GlInt = 0;
+    let screen_texture = Texture::new(&gl, width, height);
+    unsafe {
+        gl.GenFramebuffers(1, &mut fbo);
+        gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
+
+        gl.FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            screen_texture.id,
+            0,
+        );
+
+        gl.BindFramebuffer(gl::FRAMEBUFFER, 0); // Added by me
+    }
+
+    // Renderbuffer
+    let mut rbo: GlInt = 0;
+    unsafe {
+        gl.GenRenderbuffers(1, &mut rbo);
+        gl.BindRenderbuffer(gl::RENDERBUFFER, rbo);
+
+        gl.RenderbufferStorage(
+            gl::RENDERBUFFER,
+            gl::DEPTH24_STENCIL8,
+            width as gl::types::GLint,
+            height as gl::types::GLint,
+        );
+
+        // attaching, also added by me
+        gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
+        gl.FramebufferRenderbuffer(
+            gl::FRAMEBUFFER,
+            gl::DEPTH_STENCIL_ATTACHMENT,
+            gl::RENDERBUFFER,
+            rbo,
+        );
+        gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+        // end - attaching
+
+        gl.BindRenderbuffer(gl::RENDERBUFFER, 0);
+    }
+
+    // Check if framebuffer is complete
+    unsafe {
+        gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
+        if gl.CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+            println!("Framebuffer is not complete!")
+        }
+        gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+    }
+
+    /* Projection quad */
+    let render_quad = primitives::build_quad(&gl, vec![(&screen_texture, TextureKind::Diffuse)]);
     // let screen_model_mat4 = &glm::one::<Mat4>() * glm::scaling(&glm::vec3(0.1, 0.1, 0.1));
 
     unsafe {
@@ -400,7 +460,16 @@ fn main() {
         let proj = glm::perspective((width / height) as f32, 45.0, near, far);
         let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
 
-        // Step 1: Render the depth of the scene to a depth map
+        // 1. Drawing on added offscreen framebuffer (with depth and stencil)
+        unsafe {
+            gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
+            gl.ClearColor(0.1, 0.1, 0.1, 1.0);
+            gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl.Enable(gl::DEPTH_TEST);
+            gl.Enable(gl::CULL_FACE);
+        }
+
+        // Render to offscreen buffer
         basic_shader.bind();
         basic_shader.setMat4(&proj, "projection");
         basic_shader.setMat4(&view, "view");
@@ -410,6 +479,21 @@ fn main() {
             basic_shader.setMat4(&transform.get_mat4(), "model");
             render_cube.draw(&basic_shader);
         }
+
+        // 2. Clear main framebuffer
+        unsafe {
+            gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl.ClearColor(1., 1., 1., 1.);
+            gl.Clear(gl::COLOR_BUFFER_BIT);
+        }
+
+        unsafe {
+            gl.Disable(gl::CULL_FACE);
+            gl.Disable(gl::DEPTH_TEST);
+        }
+
+        screen_shader.bind();
+        render_quad.draw(&screen_shader);
 
         // ************************* RENDERING **********************8**
 

@@ -67,6 +67,8 @@ pub static CUBE: [f32; 288] = [
     -0.5, 0.5, -0.5, 0., 1., 0., 0.0, 1.0, // top-left
 ];
 
+pub type TextureAttachment<'a> = (&'a Texture, TextureKind);
+
 pub struct Model<'a> {
     gl: gl::GlPtr,
 
@@ -75,8 +77,7 @@ pub struct Model<'a> {
     ebo: GlInt,
 
     triangles: i32,
-
-    textures: Vec<&'a Texture>,
+    textures: Vec<TextureAttachment<'a>>,
 }
 
 fn setup_vertex_attrib(gl: &gl::GlPtr, locations: &[i32]) {
@@ -170,7 +171,7 @@ pub fn create<'a>(
     gl: &gl::GlPtr,
     vertices: &Vec<f32>,
     locations: &[i32],
-    textures: Vec<&'a Texture>,
+    textures: Vec<TextureAttachment<'a>>,
 ) -> Model<'a> {
     let mut triangles = vertices.len() as i32;
     let stride: i32 = locations.iter().sum();
@@ -218,24 +219,32 @@ impl Model<'_> {
         self.unbind_textures_from(&shader);
     }
 
+    pub fn draw_b(&self, shader: &Program) {
+        unsafe {
+            self.gl.BindVertexArray(self.vao);
+            self.gl.DrawArrays(gl::TRIANGLES, 0, 6);
+            self.gl.BindVertexArray(0);
+        }
+    }
+
     pub fn bind_textures_to(&self, shader: &Program) {
         let mut diffuse_number = 1;
         let mut specular_number = 1;
         let mut normal_number = 1;
         let mut height_number = 1;
 
-        for (i, texture) in self.textures.iter().enumerate() {
+        for (i, &(texture, kind)) in self.textures.iter().enumerate() {
             unsafe {
                 self.gl.ActiveTexture(gl::TEXTURE0 + i as u32);
 
-                match texture.kind {
+                match kind {
                     TextureKind::Diffuse => diffuse_number += 1,
                     TextureKind::Specular => specular_number += 1,
                     TextureKind::Normal => normal_number += 1,
                     TextureKind::Height => height_number += 1,
                 }
 
-                shader.setInt(i as i32, &format!("{}{}", texture.kind.as_str(), i));
+                shader.setInt(i as i32, &format!("{}{}", kind.as_str(), i));
                 texture.bind();
             }
         }
@@ -251,126 +260,7 @@ impl Model<'_> {
     }
 }
 
-/* primitives */
-pub fn build_cube<'a>(gl: &gl::GlPtr, textures: Vec<&'a Texture>) -> Model<'a> {
-    create(
-        &gl,
-        &CUBE.to_vec(),
-        &[
-            3, /* verticles */
-            3, /* normals */
-            2, /* texture coords */
-        ],
-        textures,
-    )
-}
-
 // http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-13-normal-mapping/#computing-the-tangents-and-bitangents
-pub fn compute_tangent_basis(vertices: &Vec<f32>) -> Vec<f32> {
-    let mut vertices_supplied = vec![];
-    let stride = 8;
-
-    let get_vertices = |index: usize| {
-        let offset = index * stride;
-        glm::vec3(vertices[offset], vertices[offset + 1], vertices[offset + 2])
-    };
-
-    let get_normals = |index: usize| {
-        let offset = index * stride + 3;
-        glm::vec3(vertices[offset], vertices[offset + 1], vertices[offset + 2])
-    };
-
-    let get_uvs = |index: usize| {
-        let offset = index * stride + 6;
-        glm::vec2(vertices[offset], vertices[offset + 1])
-    };
-
-    let mut i = 0;
-    while i < vertices.len() / 8 {
-        // unnecessary here but... i need to join arrays
-        let n0 = get_normals(i);
-        let n1 = get_normals(i + 1);
-        let n2 = get_normals(i + 2);
-
-        let v0 = get_vertices(i);
-        let v1 = get_vertices(i + 1);
-        let v2 = get_vertices(i + 2);
-
-        let uv0 = get_uvs(i);
-        let uv1 = get_uvs(i + 1);
-        let uv2 = get_uvs(i + 2);
-
-        // Edges of the triangle : position delta
-        let delta_pos_1 = &v1 - &v0;
-        let delta_pos_2 = &v2 - &v0;
-
-        // UV delta
-        let delta_uv_1 = &uv1 - &uv0;
-        let delta_uv_2 = &uv2 - &uv0;
-
-        let r = 1.0 / (delta_uv_1.x * delta_uv_2.y - delta_uv_1.y * delta_uv_2.x);
-        let tangent = (delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y) * r;
-        let bitangent = (delta_pos_2 * delta_uv_1.x - delta_pos_1 * delta_uv_2.x) * r;
-
-        let mut s0 = vec![
-            v0.x,
-            v0.y,
-            v0.z,
-            n0.x,
-            n0.y,
-            n0.z,
-            uv0.x,
-            uv0.y,
-            tangent.x,
-            tangent.y,
-            tangent.z,
-            bitangent.x,
-            bitangent.y,
-            bitangent.z,
-        ];
-        let mut s1 = vec![
-            v1.x,
-            v1.y,
-            v1.z,
-            n1.x,
-            n1.y,
-            n1.z,
-            uv1.x,
-            uv1.y,
-            tangent.x,
-            tangent.y,
-            tangent.z,
-            bitangent.x,
-            bitangent.y,
-            bitangent.z,
-        ];
-        let mut s2 = vec![
-            v2.x,
-            v2.y,
-            v2.z,
-            n2.x,
-            n2.y,
-            n2.z,
-            uv2.x,
-            uv2.y,
-            tangent.x,
-            tangent.y,
-            tangent.z,
-            bitangent.x,
-            bitangent.y,
-            bitangent.z,
-        ];
-
-        vertices_supplied.append(&mut s0);
-        vertices_supplied.append(&mut s1);
-        vertices_supplied.append(&mut s2);
-
-        i += 3
-    }
-
-    vertices_supplied
-}
-
 pub fn compute_tangent(
     indices: &Vec<u32>,
     vertices: &Vec<glm::Vec3>,
@@ -412,12 +302,29 @@ pub fn compute_tangent(
     (tangents, bitangents)
 }
 
-pub fn build_quad(gl: &gl::GlPtr) -> Model {
+/* primitives */
+pub fn build_cube<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> Model<'a> {
+    create(
+        &gl,
+        &CUBE.to_vec(),
+        &[
+            3, /* verticles */
+            3, /* normals */
+            2, /* texture coords */
+        ],
+        textures,
+    )
+}
+
+pub fn build_quad<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> Model<'a> {
     create(
         &gl,
         &QUAD.to_vec(),
-        &[2 /* verticles */, 2 /* texture coords */],
-        vec![],
+        &[
+            2, // verticles
+            2, // texture coords
+        ],
+        textures,
     )
 }
 
