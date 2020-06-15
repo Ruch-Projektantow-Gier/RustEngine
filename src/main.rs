@@ -141,7 +141,7 @@ fn main() {
         gl.DepthMask(gl::TRUE);
 
         gl.Enable(gl::CULL_FACE);
-        gl.FrontFace(gl::CW);
+        // gl.FrontFace(gl::CW);
 
         gl.Enable(gl::MULTISAMPLE);
     }
@@ -166,7 +166,10 @@ fn main() {
     //
 
     let diffuse_texture = Texture::from(&gl, "res/wall.jpg").expect("Cannot load texture");
+    let diffuse_texture2 = Texture::from(&gl, "res/dirt.png").expect("Cannot load texture");
     let render_cube = primitives::build_cube(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
+    let render_sphere =
+        primitives::build_sphere(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
 
     let basic_shader = render_gl::Program::from_files(
         &gl,
@@ -253,11 +256,11 @@ fn main() {
     // Cubes
     let mut scene_buffer = SceneBuffer::new();
     let mut cubes: Vec<DoubleBuffered<TransformComponent>> = vec![];
-    cubes.push(DoubleBuffered::new(TransformComponent {
-        position: glm::vec3(0., 2., 0.),
-        rotation: glm::quat_identity(),
-        scale: glm::vec3(0.1, 0.1, 0.1),
-    }));
+    // cubes.push(DoubleBuffered::new(TransformComponent {
+    //     position: glm::vec3(0., 2., 0.),
+    //     rotation: glm::quat_identity(),
+    //     scale: glm::vec3(0.1, 0.1, 0.1),
+    // }));
     cubes.push(DoubleBuffered::new(TransformComponent {
         position: glm::vec3(0., 0., 0.),
         rotation: glm::quat_identity(),
@@ -273,11 +276,11 @@ fn main() {
         rotation: glm::quat_identity(),
         scale: glm::vec3(1., 1., 1.),
     }));
-    cubes.push(DoubleBuffered::new(TransformComponent {
-        position: glm::vec3(0., -1., 0.),
-        rotation: glm::quat_identity(),
-        scale: glm::vec3(100., 1., 100.),
-    }));
+    // cubes.push(DoubleBuffered::new(TransformComponent {
+    //     position: glm::vec3(0., -1., 0.),
+    //     rotation: glm::quat_identity(),
+    //     scale: glm::vec3(100., 1., 100.),
+    // }));
 
     // Camera
     let camera_speed = 0.1;
@@ -466,7 +469,9 @@ fn main() {
             gl.ClearColor(0.1, 0.1, 0.1, 1.0);
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl.Enable(gl::DEPTH_TEST);
+
             gl.Enable(gl::CULL_FACE);
+            gl.FrontFace(gl::CW);
         }
 
         // Render to offscreen buffer
@@ -479,6 +484,16 @@ fn main() {
             basic_shader.setMat4(&transform.get_mat4(), "model");
             render_cube.draw(&basic_shader);
         }
+
+        let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(-2., 85., -80.));
+        sphere_model *= glm::scaling(&glm::vec3(50., 50., 50.));
+
+        unsafe {
+            gl.FrontFace(gl::CCW);
+        }
+
+        basic_shader.setMat4(&sphere_model, "model");
+        render_sphere.draw_b(&basic_shader);
 
         // 2. Clear main framebuffer
         unsafe {

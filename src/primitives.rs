@@ -122,14 +122,14 @@ fn setup_vbo(gl: &gl::GlPtr, vertices: &Vec<f32>, locations: &[i32]) -> GlInt {
             gl::STATIC_DRAW,
         );
         setup_vertex_attrib(&gl, &locations);
-        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
+        // unbind after vao
     }
 
     vbo
 }
 
 /* indicies */
-fn setup_ebo(gl: &gl::GlPtr, indices: &[i32]) -> GlInt {
+fn setup_ebo(gl: &gl::GlPtr, indices: &[u32]) -> GlInt {
     let mut ebo: GlInt = 0;
 
     // Remember to bind vao first
@@ -139,11 +139,11 @@ fn setup_ebo(gl: &gl::GlPtr, indices: &[i32]) -> GlInt {
         gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
         gl.BufferData(
             gl::ELEMENT_ARRAY_BUFFER,
-            (indices.len() * std::mem::size_of::<i32>()) as gl::types::GLsizeiptr,
+            (indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
             indices.as_ptr() as *const gl::types::GLvoid,
             gl::STATIC_DRAW,
         );
-        gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+        // unbind after vao
     }
 
     ebo
@@ -162,6 +162,10 @@ where
         gl.BindVertexArray(vao);
         f();
         gl.BindVertexArray(0);
+
+        // It's needs to be unbinded after vao
+        gl.BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
     }
 
     vao
@@ -197,6 +201,34 @@ pub fn create<'a>(
     }
 }
 
+pub fn create_with_indices<'a>(
+    gl: &gl::GlPtr,
+    vertices: &Vec<f32>,
+    indices: &Vec<u32>,
+    locations: &[i32],
+    textures: Vec<TextureAttachment<'a>>,
+) -> Model<'a> {
+    let triangles = indices.len() as i32;
+
+    let mut vao: GlInt = 0;
+    let mut vbo: GlInt = 0;
+    let mut ebo: GlInt = 0;
+
+    vao = setup_vao(&gl, || {
+        ebo = setup_ebo(&gl, &indices);
+        vbo = setup_vbo(&gl, &vertices, &locations);
+    });
+
+    Model {
+        gl: gl.clone(),
+        vao,
+        vbo,
+        ebo,
+        triangles,
+        textures,
+    }
+}
+
 impl Model<'_> {
     pub fn raw_draw(&self, mode: gl::types::GLenum) {
         unsafe {
@@ -220,11 +252,18 @@ impl Model<'_> {
     }
 
     pub fn draw_b(&self, shader: &Program) {
-        unsafe {
-            self.gl.BindVertexArray(self.vao);
-            self.gl.DrawArrays(gl::TRIANGLES, 0, 6);
-            self.gl.BindVertexArray(0);
-        }
+        self.bind_textures_to(&shader);
+        // unsafe {
+        //     self.gl.BindVertexArray(self.vao);
+        //
+        //     self.gl.LineWidth(4.);
+        //     self.gl.PointSize(20.);
+        //     // self.gl.DrawArrays(gl::POINTS, 0, 2000);
+        // }
+        // self.raw_draw(gl::POINTS);
+        self.raw_draw(gl::TRIANGLES);
+        // self.raw_draw(gl::LINES);
+        self.unbind_textures_from(&shader);
     }
 
     pub fn bind_textures_to(&self, shader: &Program) {
@@ -328,11 +367,19 @@ pub fn build_quad<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> M
     )
 }
 
-pub fn build_sphere(gl: &gl::GlPtr) -> Model {
-    create(
+pub fn build_sphere<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> Model<'a> {
+    // let (vertices, indices) = sphere::gen_sphere(1.0, 30, 30);
+    let (vertices, indices) = sphere::build_isosphere();
+
+    create_with_indices(
         &gl,
-        &sphere::gen_sphere_vertices(10),
-        &[3 /* verticles */],
-        vec![],
+        &vertices,
+        &indices,
+        &[
+            3, /* verticles */
+            3, /* normals */
+            2, /* texture coords */
+        ],
+        textures,
     )
 }
