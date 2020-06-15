@@ -185,6 +185,13 @@ fn main() {
     )
     .unwrap();
 
+    let color_shader = render_gl::Program::from_files(
+        &gl,
+        include_str!("shaders/color/color.vert"),
+        include_str!("shaders/color/color.frag"),
+    )
+    .unwrap();
+
     /* Lights Rendering */
     type GlInt = gl::types::GLuint;
 
@@ -485,15 +492,22 @@ fn main() {
             render_cube.draw(&basic_shader);
         }
 
-        let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(-2., 85., -80.));
-        sphere_model *= glm::scaling(&glm::vec3(50., 50., 50.));
+        let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(-2., 4., -4.));
+        sphere_model *= glm::scaling(&glm::vec3(5., 5., 5.));
 
         unsafe {
             gl.FrontFace(gl::CCW);
         }
 
+        // color_shader.bind();
+        // color_shader.setMat4(&proj, "projection");
+        // color_shader.setMat4(&view, "view");
+        // color_shader.setMat4(&sphere_model, "model");
+        // render_sphere.draw_mesh();
+
+        basic_shader.bind();
         basic_shader.setMat4(&sphere_model, "model");
-        render_sphere.draw_b(&basic_shader);
+        render_sphere.draw(&basic_shader);
 
         // 2. Clear main framebuffer
         unsafe {

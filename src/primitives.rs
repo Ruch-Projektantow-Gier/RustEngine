@@ -251,19 +251,24 @@ impl Model<'_> {
         self.unbind_textures_from(&shader);
     }
 
-    pub fn draw_b(&self, shader: &Program) {
-        self.bind_textures_to(&shader);
-        // unsafe {
-        //     self.gl.BindVertexArray(self.vao);
-        //
-        //     self.gl.LineWidth(4.);
-        //     self.gl.PointSize(20.);
-        //     // self.gl.DrawArrays(gl::POINTS, 0, 2000);
-        // }
+    pub fn draw_mesh(&self) {
+        unsafe {
+            self.gl.BindVertexArray(self.vao);
+
+            self.gl.Disable(gl::CULL_FACE);
+            self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+
+            self.gl.LineWidth(4.);
+            self.gl.PointSize(20.);
+            // self.gl.DrawArrays(gl::POINTS, 63, 1);
+        }
         // self.raw_draw(gl::POINTS);
         self.raw_draw(gl::TRIANGLES);
         // self.raw_draw(gl::LINES);
-        self.unbind_textures_from(&shader);
+
+        unsafe {
+            self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+        }
     }
 
     pub fn bind_textures_to(&self, shader: &Program) {

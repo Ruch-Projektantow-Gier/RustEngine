@@ -251,6 +251,34 @@ pub fn build_isosphere() -> (Vec<f32>, Vec<u32>) {
         out_indices.push(i3);
     };
 
+    let get_normal = |v1: *const f32, v2: *const f32, v3: *const f32| unsafe {
+        let epsilon = 0.000001;
+        let mut normal = [0.; 3];
+
+        let ex1 = *v2.offset(0) - *v1.offset(0);
+        let ey1 = *v2.offset(1) - *v1.offset(1);
+        let ez1 = *v2.offset(2) - *v1.offset(2);
+        let ex2 = *v3.offset(0) - *v1.offset(0);
+        let ey2 = *v3.offset(1) - *v1.offset(1);
+        let ez2 = *v3.offset(2) - *v1.offset(2);
+
+        let nx = ey1 * ez2 - ez1 * ey2;
+        let ny = ez1 * ex2 - ex1 * ez2;
+        let nz = ex1 * ey2 - ey1 * ex2;
+
+        let length = (nx * nx + ny * ny + nz * nz).sqrt();
+
+        if length > epsilon {
+            // normalize
+            let length_inv = 1. / length;
+            normal[0] = nx * length_inv;
+            normal[1] = ny * length_inv;
+            normal[2] = nz * length_inv;
+        }
+
+        normal
+    };
+
     // vertex positions
     let mut v0: *const f32;
     let mut v1: *const f32;
@@ -258,9 +286,6 @@ pub fn build_isosphere() -> (Vec<f32>, Vec<u32>) {
     let mut v3: *const f32;
     let mut v4: *const f32;
     let mut v11: *const f32;
-
-    // face normal
-    let mut n = [0.; 3];
 
     // texCoords
     let mut t0 = [0.; 2];
@@ -276,7 +301,7 @@ pub fn build_isosphere() -> (Vec<f32>, Vec<u32>) {
     v0 = &base_vertices[0]; // 1st vertex
     v11 = &base_vertices[11 * 3]; // 12th vertex
 
-    for i in 0..=5 {
+    for i in 1..=5 {
         v1 = &base_vertices[i * 3];
         if i < 5 {
             v2 = &base_vertices[(i + 1) * 3];
@@ -307,24 +332,27 @@ pub fn build_isosphere() -> (Vec<f32>, Vec<u32>) {
 
         // add a triangle in 1st row
         add_vertices(v0, v1, v2);
+        let n = get_normal(v0, v1, v2);
         add_normals(n, n, n);
         add_tex_coords(t0, t1, t2);
         add_indices(index, index + 1, index + 2);
 
         // add 2 triangles in 2nd row
         add_vertices(v1, v3, v2);
+        let n = get_normal(v1, v3, v2);
         add_normals(n, n, n);
         add_tex_coords(t1, t3, t2);
         add_indices(index + 3, index + 4, index + 5);
 
-        // Icosphere::computeFaceNormal(v2, v3, v4, n);
         add_vertices(v2, v3, v4);
+        let n = get_normal(v2, v3, v4);
         add_normals(n, n, n);
         add_tex_coords(t2, t3, t4);
         add_indices(index + 6, index + 7, index + 8);
 
         // add a triangle in 3rd row
         add_vertices(v3, v11, v4);
+        let n = get_normal(v3, v11, v4);
         add_normals(n, n, n);
         add_tex_coords(t3, t11, t4);
         add_indices(index + 9, index + 10, index + 11);
@@ -335,10 +363,13 @@ pub fn build_isosphere() -> (Vec<f32>, Vec<u32>) {
         index += 12;
     }
 
+    // assert_eq!(out_vertices.len(), 12 * 3);
+
     // subdivision
     let mut result = (out_vertices, out_normals, out_tex_coords, out_indices);
-    for i in 0..4 {
-        let (out_vertices, out_normals, out_tex_coords, out_indices) = result;
+
+    for i in 0..3 {
+        let (out_vertices, _, out_tex_coords, out_indices) = result;
         result = subdivide(out_vertices, out_tex_coords, out_indices);
     }
 
