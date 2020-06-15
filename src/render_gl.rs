@@ -174,6 +174,18 @@ impl Program {
             );
         }
     }
+
+    pub fn setVec4Float(&self, val: &glm::Vec4, name: &str) {
+        let cstr_name = CString::new(name).unwrap();
+
+        unsafe {
+            self.gl.Uniform4fv(
+                self.gl.GetUniformLocation(self.id, cstr_name.as_ptr()),
+                1,
+                val.as_ptr(),
+            );
+        }
+    }
 }
 
 impl Drop for Program {

@@ -499,15 +499,17 @@ fn main() {
             gl.FrontFace(gl::CCW);
         }
 
-        // color_shader.bind();
-        // color_shader.setMat4(&proj, "projection");
-        // color_shader.setMat4(&view, "view");
-        // color_shader.setMat4(&sphere_model, "model");
-        // render_sphere.draw_mesh();
+        color_shader.bind();
+        color_shader.setMat4(&proj, "projection");
+        color_shader.setMat4(&view, "view");
+        color_shader.setMat4(&sphere_model, "model");
+        color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.5), "color");
+        render_sphere.draw_mesh(1.);
+        render_sphere.draw_vertices(5.);
 
-        basic_shader.bind();
-        basic_shader.setMat4(&sphere_model, "model");
-        render_sphere.draw(&basic_shader);
+        // basic_shader.bind();
+        // basic_shader.setMat4(&sphere_model, "model");
+        // render_sphere.draw(&basic_shader);
 
         // 2. Clear main framebuffer
         unsafe {

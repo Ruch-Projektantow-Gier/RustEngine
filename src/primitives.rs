@@ -251,23 +251,41 @@ impl Model<'_> {
         self.unbind_textures_from(&shader);
     }
 
-    pub fn draw_mesh(&self) {
+    pub fn draw_mesh(&self, line_width: f32) {
         unsafe {
-            self.gl.BindVertexArray(self.vao);
-
             self.gl.Disable(gl::CULL_FACE);
             self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
 
-            self.gl.LineWidth(4.);
-            self.gl.PointSize(20.);
-            // self.gl.DrawArrays(gl::POINTS, 63, 1);
+            self.gl.LineWidth(line_width);
+
+            self.gl.Enable(gl::BLEND);
+            self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
-        // self.raw_draw(gl::POINTS);
+
         self.raw_draw(gl::TRIANGLES);
-        // self.raw_draw(gl::LINES);
 
         unsafe {
             self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+            self.gl.Disable(gl::BLEND);
+        }
+    }
+
+    pub fn draw_vertices(&self, point_size: f32) {
+        unsafe {
+            self.gl.Disable(gl::CULL_FACE);
+            self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::POINT);
+
+            self.gl.PointSize(point_size);
+
+            self.gl.Enable(gl::BLEND);
+            self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
+        self.raw_draw(gl::TRIANGLES);
+
+        unsafe {
+            self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+            self.gl.Disable(gl::BLEND);
         }
     }
 
