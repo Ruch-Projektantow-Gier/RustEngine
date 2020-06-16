@@ -1,4 +1,5 @@
 extern crate nalgebra_glm as glm;
+use crate::cube::Ray;
 use crate::primitives;
 use crate::primitives::Model;
 use crate::render_gl::{Program, Shader};
@@ -154,6 +155,13 @@ impl<'a> DebugDrawer<'a> {
 
     pub fn draw(&self, from: &glm::Vec3, to: &glm::Vec3) {
         self.draw_color(from, to, &glm::vec4(1., 1., 1., 1.), 1.);
+    }
+
+    pub fn draw_ray(&self, ray: &Ray, distance: f32) {
+        let from = &ray.origin;
+        let to = &ray.origin + &ray.dir * distance;
+
+        self.draw_color(from, &to, &glm::vec4(1., 1., 1., 1.), 1.);
     }
 
     pub fn draw_gizmo(&self, pos: &glm::Vec3, length: f32, weight: f32) {

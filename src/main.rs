@@ -5,7 +5,9 @@ extern crate stb_image;
 use gl;
 // use imgui::*;
 
+use crate::cube::Ray;
 use crate::texture::{Texture, TextureKind};
+use crate::utilities::is_rays_intersect;
 use std::rc::Rc;
 use std::time::SystemTime;
 
@@ -15,6 +17,7 @@ mod primitives;
 mod render_gl;
 mod sphere;
 mod texture;
+mod utilities;
 
 type Mat4 = glm::Mat4;
 type Vec3f = glm::Vec3;
@@ -291,6 +294,9 @@ fn main() {
     //     scale: glm::vec3(100., 1., 100.),
     // }));
 
+    let mut r1 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
+    let mut r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
+
     // Camera
     let camera_speed = 0.1;
     let mut camera_pos = glm::vec3(0., 4., 6.);
@@ -312,6 +318,10 @@ fn main() {
 
     // Events
     let mut event_pump = sdl.event_pump().unwrap();
+
+    // MATRIXES
+    let proj = glm::perspective((width / height) as f32, 45.0, near, far);
+    let mut view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
 
     'main: loop {
         let current = SystemTime::now();
@@ -390,19 +400,52 @@ fn main() {
                 } => {
                     camera_pos -= &camera_up * camera_speed;
                 }
-                // sdl2::event::Event::MouseButtonDown {
-                //     mouse_btn: sdl2::mouse::MouseButton::Left,
-                //     ..
-                // } => {
-                //     match &candidate {
-                //         Some(pos) => {
-                //             cubes.push(pos * cube::CUBE_SIZE);
-                //         }
-                //         None => {}
-                //     }
-                //
-                //     ()
-                // }
+                sdl2::event::Event::MouseButtonDown {
+                    mouse_btn: sdl2::mouse::MouseButton::Left,
+                    x,
+                    y,
+                    ..
+                } => {
+                    // match &candidate {
+                    //     Some(pos) => {
+                    //         cubes.push(pos * cube::CUBE_SIZE);
+                    //     }
+                    //     None => {}
+                    // }
+                    // let r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
+                    let x = (x as f32) / (width as f32) * 2. - 1.;
+                    let y = (y as f32) / (height as f32) * 2. - 1.;
+
+                    let inverse_vp = glm::inverse(&(&proj * &view));
+                    let screen_pos = glm::vec4(x, -y, 1.0, 1.0);
+                    let world_pos = inverse_vp * screen_pos;
+                    let dir = glm::vec4_to_vec3(&world_pos).normalize();
+
+                    // let dir = glm::normalize(
+                    //     &(glm::inverse(&(&proj * &view)) * glm::vec4(x, y, 1.0, 1.0)),
+                    // );
+
+                    // let test = glm::unproject(
+                    //     &glm::vec3(x, y, 1.),
+                    //     &glm::inverse(&view),
+                    //     &proj,
+                    //     glm::vec4(
+                    //         -(width as f32) / 2.,
+                    //         (width as f32) / 2.,
+                    //         (width as f32) / 2.,
+                    //         -(width as f32) / 2.,
+                    //     ),
+                    // );
+
+                    // println!("{}", test);
+
+                    r2 = Ray::new(&(&camera_pos), &dir);
+
+                    let result = is_rays_intersect(&r1, &r2);
+                    println!("{}", result);
+
+                    ()
+                }
                 sdl2::event::Event::MouseButtonDown {
                     mouse_btn: sdl2::mouse::MouseButton::Right,
                     x,
@@ -469,8 +512,7 @@ fn main() {
         }
 
         // MATRIXES
-        let proj = glm::perspective((width / height) as f32, 45.0, near, far);
-        let view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
+        view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
 
         // 1. Drawing on added offscreen framebuffer (with depth and stencil)
         unsafe {
@@ -532,6 +574,14 @@ fn main() {
         // basic_shader.bind();
         // basic_shader.setMat4(&sphere_model, "model");
         // render_sphere.draw(&basic_shader);
+
+        // Ray tests
+        // let r1 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
+        // let r2 = Ray::new(&glm::vec3(-1., 2., 0.), &glm::vec3(1., 0., 0.));
+
+        drawer.draw_ray(&r1, 10.);
+        drawer.draw_ray(&r2, 10.);
+        // drawer.draw_ray(&r2, 2.);
 
         // Grid
         let mut grid_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
