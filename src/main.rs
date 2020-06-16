@@ -169,6 +169,7 @@ fn main() {
     let diffuse_texture2 = Texture::from(&gl, "res/dirt.png").expect("Cannot load texture");
     let render_cube = primitives::build_cube(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
     let render_pyramid = primitives::build_pyramid(&gl);
+    let render_grid = primitives::build_grid(&gl, 30);
     let render_sphere =
         primitives::build_sphere(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
 
@@ -292,8 +293,8 @@ fn main() {
 
     // Camera
     let camera_speed = 0.1;
-    let mut camera_pos = glm::vec3(0., 0., 3.);
-    let mut camera_front = glm::vec3(0., 0., -1.);
+    let mut camera_pos = glm::vec3(0., 4., 6.);
+    let mut camera_front = glm::vec3(0., -4., -6.);
     let mut camera_up = glm::vec3(0., 1., 0.);
     let mut camera_movement = glm::vec2(0, 0);
 
@@ -508,8 +509,8 @@ fn main() {
             gl.Enable(gl::DEPTH_TEST);
         }
 
-        let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(-2., 4., -4.));
-        sphere_model *= glm::scaling(&glm::vec3(5., 5., 5.));
+        let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
+        sphere_model *= glm::scaling(&glm::vec3(1., 1., 1.));
 
         unsafe {
             gl.FrontFace(gl::CCW);
@@ -522,7 +523,8 @@ fn main() {
         color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.5), "color");
         // render_sphere.draw_mesh(1.);
         // render_sphere.draw_vertices(5.);
-        render_pyramid.draw_mesh(1.);
+        // render_pyramid.draw_mesh(1.);
+
         // render_pyramid.draw(&color_shader);
 
         //
@@ -531,14 +533,39 @@ fn main() {
         // basic_shader.setMat4(&sphere_model, "model");
         // render_sphere.draw(&basic_shader);
 
+        // Grid
+        let mut grid_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
+        grid_model *= glm::scaling(&glm::vec3(5., 5., 5.));
+
+        color_shader.bind();
+        color_shader.setMat4(&proj, "projection");
+        color_shader.setMat4(&view, "view");
+        color_shader.setMat4(&grid_model, "model");
+        color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.1), "color");
+        render_grid.draw_lines(1.);
+
+        drawer.draw_color(
+            &glm::vec3(0., 0., -5.),
+            &glm::vec3(0., 0., 5.),
+            &glm::vec4(0.2, 0.2, 0.2, 1.0),
+            1.,
+        );
+
+        drawer.draw_color(
+            &glm::vec3(-5., 0., 0.),
+            &glm::vec3(5., 0., 0.),
+            &glm::vec4(0.2, 0.2, 0.2, 1.0),
+            1.,
+        );
+
         // gui
         let test = glm::unproject(
-            &glm::vec3(0.1, 0.1, 0.5),
+            &glm::vec3(0.05, 0.05, 0.5),
             &view,
             &proj,
             glm::vec4(0., 0., 1., 1.),
         );
-        drawer.draw_gizmo(&test, 0.02, 1.);
+        drawer.draw_gizmo(&test, 0.01, 0.5);
 
         // 2. Clear main framebuffer
         unsafe {

@@ -270,6 +270,25 @@ impl Model<'_> {
         }
     }
 
+    pub fn draw_lines(&self, line_width: f32) {
+        unsafe {
+            self.gl.Disable(gl::CULL_FACE);
+            self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
+
+            self.gl.LineWidth(line_width);
+
+            self.gl.Enable(gl::BLEND);
+            self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
+        self.raw_draw(gl::LINES);
+
+        unsafe {
+            self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+            self.gl.Disable(gl::BLEND);
+        }
+    }
+
     pub fn draw_vertices(&self, point_size: f32) {
         unsafe {
             self.gl.Disable(gl::CULL_FACE);
@@ -404,6 +423,29 @@ pub fn build_sphere<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) ->
             2, /* texture coords */
         ],
         textures,
+    )
+}
+
+pub fn build_grid<'a>(gl: &gl::GlPtr, steps: i32) -> Model<'a> {
+    let mut lines = vec![];
+
+    for i in 0..=steps {
+        let step = (i as f32 / steps as f32) * 2. - 1.;
+
+        lines.append(&mut vec![step, 0., 1.]);
+        lines.append(&mut vec![step, 0., -1.]);
+
+        lines.append(&mut vec![1., 0., step]);
+        lines.append(&mut vec![-1., 0., step]);
+    }
+
+    create(
+        &gl,
+        &lines,
+        &[
+            3, // verticles
+        ],
+        vec![],
     )
 }
 

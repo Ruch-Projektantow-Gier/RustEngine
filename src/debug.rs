@@ -35,6 +35,27 @@ impl<'a> DebugDrawer<'a> {
         let mut model = glm::translate(&glm::identity(), &glm::vec3(0., 0., 0.));
 
         unsafe {
+            self.debug.gl.Disable(gl::CULL_FACE);
+            self.debug.gl.Enable(gl::BLEND);
+            self.debug
+                .gl
+                .BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
+        // pyramid width
+        use crate::glm::RealField;
+
+        let test = glm::unproject(
+            &glm::vec3(weight, weight, 0.),
+            &self.view,
+            &self.proj,
+            glm::vec4(0., 0., 1., 1.),
+        );
+
+        let arrow_size = (to - test).magnitude() * weight * 0.02;
+
+        // line-draw
+        unsafe {
             self.debug.gl.LineWidth(4.0 * weight);
             self.debug.gl.BindVertexArray(self.debug.line_vao);
 
@@ -54,7 +75,7 @@ impl<'a> DebugDrawer<'a> {
                 let x = new_x;
                 let y = new_y;
                 let z = new_z;
-                let length = (to - from).magnitude();
+                let length = (to - from).magnitude() - arrow_size;
 
                 model = glm::mat4(
                     x[0] * length,
@@ -86,17 +107,6 @@ impl<'a> DebugDrawer<'a> {
         }
 
         // pyramid
-        use crate::glm::RealField;
-
-        let test = glm::unproject(
-            &glm::vec3(weight, weight, 0.),
-            &self.view,
-            &self.proj,
-            glm::vec4(0., 0., 1., 1.),
-        );
-
-        let arrow_size = (to - test).magnitude() * weight * 0.02;
-
         {
             let mut new_y = (to - from).normalize();
             let mut new_z = glm::cross(&new_y, &glm::vec3(1., 0., 0.));
@@ -135,6 +145,8 @@ impl<'a> DebugDrawer<'a> {
                 );
             }
         }
+
+        model = glm::translate(&model, &glm::vec3(0., -0.5, 0.));
 
         self.debug.shader.setMat4(&model, "model");
         self.debug.pyramid.draw(&self.debug.shader);
