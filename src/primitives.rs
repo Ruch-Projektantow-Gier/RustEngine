@@ -406,3 +406,39 @@ pub fn build_sphere<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) ->
         textures,
     )
 }
+
+pub fn build_pyramid<'a>(gl: &gl::GlPtr) -> Model<'a> {
+    let unit = std::f32::consts::FRAC_1_SQRT_2; // 0.7071
+
+    create(
+        &gl,
+        &vec![
+            // Front face
+            -0.5, -0.5, 0.5, 0., unit, unit, // bottom-left
+            0.5, -0.5, 0.5, 0., unit, unit, // bottom-right
+            0., 0.5, 0., 0., unit, unit, // top-center
+            // Right face
+            0.5, -0.5, 0.5, unit, unit, 0., // bottom-left
+            0.5, -0.5, -0.5, unit, unit, 0., // bottom-right
+            0., 0.5, 0., unit, unit, 0., // top-center
+            // Back face
+            0.5, -0.5, -0.5, 0., unit, -unit, // bottom-left
+            -0.5, -0.5, -0.5, 0., unit, -unit, // bottom-right
+            0., 0.5, 0., 0., unit, -unit, // top-center
+            // Left face
+            -0.5, -0.5, -0.5, -unit, unit, 0., // bottom-left
+            -0.5, -0.5, 0.5, -unit, unit, 0., // bottom-right
+            0., 0.5, 0., -unit, unit, 0., // top-center
+            // Bottom face
+            0.5, -0.5, 0.5, 0., -1., 0., //
+            -0.5, -0.5, 0.5, 0., -1., 0., //
+            0.5, -0.5, -0.5, 0., -1., 0., //
+            0.5, -0.5, -0.5, 0., -1., 0., //
+            -0.5, -0.5, 0.5, 0., -1., 0., //
+            -0.5, -0.5, -0.5, 0., -1., 0., //
+        ]
+        .to_vec(),
+        &[3 /* verticles */, 3 /* normals */],
+        vec![],
+    )
+}

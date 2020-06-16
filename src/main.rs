@@ -168,6 +168,7 @@ fn main() {
     let diffuse_texture = Texture::from(&gl, "res/wall.jpg").expect("Cannot load texture");
     let diffuse_texture2 = Texture::from(&gl, "res/dirt.png").expect("Cannot load texture");
     let render_cube = primitives::build_cube(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
+    let render_pyramid = primitives::build_pyramid(&gl);
     let render_sphere =
         primitives::build_sphere(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
 
@@ -268,11 +269,11 @@ fn main() {
     //     rotation: glm::quat_identity(),
     //     scale: glm::vec3(0.1, 0.1, 0.1),
     // }));
-    cubes.push(DoubleBuffered::new(TransformComponent {
-        position: glm::vec3(0., 0., 0.),
-        rotation: glm::quat_identity(),
-        scale: glm::vec3(1., 1., 1.),
-    }));
+    // cubes.push(DoubleBuffered::new(TransformComponent {
+    //     position: glm::vec3(0., 0., 0.),
+    //     rotation: glm::quat_identity(),
+    //     scale: glm::vec3(1., 1., 1.),
+    // }));
     cubes.push(DoubleBuffered::new(TransformComponent {
         position: glm::vec3(2., 0., 0.),
         rotation: glm::quat_identity(),
@@ -486,10 +487,25 @@ fn main() {
         basic_shader.setMat4(&proj, "projection");
         basic_shader.setMat4(&view, "view");
 
+        let drawer = debug.setup_drawer(&view, &proj);
+
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
             basic_shader.setMat4(&transform.get_mat4(), "model");
             render_cube.draw(&basic_shader);
+        }
+
+        // gizmos
+        unsafe {
+            gl.Disable(gl::DEPTH_TEST);
+        }
+        for cube in &cubes {
+            let transform = cube.get(&scene_buffer);
+            drawer.draw_gizmo(&transform.position, 1., 1.);
+            break;
+        }
+        unsafe {
+            gl.Enable(gl::DEPTH_TEST);
         }
 
         let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(-2., 4., -4.));
@@ -504,12 +520,25 @@ fn main() {
         color_shader.setMat4(&view, "view");
         color_shader.setMat4(&sphere_model, "model");
         color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.5), "color");
-        render_sphere.draw_mesh(1.);
-        render_sphere.draw_vertices(5.);
+        // render_sphere.draw_mesh(1.);
+        // render_sphere.draw_vertices(5.);
+        render_pyramid.draw_mesh(1.);
+        // render_pyramid.draw(&color_shader);
+
+        //
 
         // basic_shader.bind();
         // basic_shader.setMat4(&sphere_model, "model");
         // render_sphere.draw(&basic_shader);
+
+        // gui
+        let test = glm::unproject(
+            &glm::vec3(0.1, 0.1, 0.5),
+            &view,
+            &proj,
+            glm::vec4(0., 0., 1., 1.),
+        );
+        drawer.draw_gizmo(&test, 0.02, 1.);
 
         // 2. Clear main framebuffer
         unsafe {
