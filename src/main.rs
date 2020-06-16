@@ -8,6 +8,7 @@ use gl;
 use crate::cube::{Line2D, Ray};
 use crate::texture::{Texture, TextureKind};
 use crate::utilities::{is_point_on_line2D, is_rays_intersect};
+use glm::translate;
 use std::rc::Rc;
 use std::time::SystemTime;
 
@@ -279,12 +280,12 @@ fn main() {
     //     scale: glm::vec3(1., 1., 1.),
     // }));
     cubes.push(DoubleBuffered::new(TransformComponent {
-        position: glm::vec3(2., 0., 0.),
+        position: glm::vec3(2., 0.5, 0.),
         rotation: glm::quat_identity(),
         scale: glm::vec3(1., 1., 1.),
     }));
     cubes.push(DoubleBuffered::new(TransformComponent {
-        position: glm::vec3(2., 1., 0.),
+        position: glm::vec3(2., 1.5, 0.),
         rotation: glm::quat_identity(),
         scale: glm::vec3(1., 1., 1.),
     }));
@@ -296,6 +297,13 @@ fn main() {
 
     let mut r1 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
     let mut r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
+    let mut is_swiping = false;
+    let mut swipe_start = glm::vec3(0., 0., 0.);
+    let mut swipe_end = glm::vec3(0., 0., 0.);
+    let mut offset_ray = glm::vec3(0., 0., 0.);
+
+    let mut drag_start = glm::vec2(0., 0.);
+    let mut drag_end = glm::vec2(0., 0.);
 
     // Camera
     let camera_speed = 0.1;
@@ -413,8 +421,9 @@ fn main() {
                     //     None => {}
                     // }
                     // let r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
-                    let x = (x as f32) / (width as f32) * 2. - 1.;
-                    let y = -((y as f32) / (height as f32) * 2. - 1.);
+
+                    let cx = (x as f32) / (width as f32) * 2. - 1.;
+                    let cy = -((y as f32) / (height as f32) * 2. - 1.);
 
                     // Creating ray from camera view
                     // let inverse_vp = glm::inverse(&(&proj * &view));
@@ -426,14 +435,39 @@ fn main() {
                     // let result = is_rays_intersect(&r1, &r2);
                     // println!("{}", result);
 
+                    let mut offset = glm::vec3(0., 0., 0.);
+                    for cube in &cubes {
+                        let transform = cube.get(&scene_buffer);
+                        offset = &transform.position + &(&swipe_end - &swipe_start);
+                        break;
+                    }
+
+                    r1 = Ray::new(&offset, &glm::vec3(1., 0., 0.));
+
                     // Creating line
                     let line =
-                        Line2D::from_ray(&r1, 10.0, &proj, &view, width as f32, height as f32);
+                        Line2D::from_ray(&r1, 1.0, &proj, &view, width as f32, height as f32);
 
-                    // println!("from {}", line.from);
-                    // println!("to {}", line.to);
-                    // println!("point {}", &glm::vec2(x, y));
-                    println!("intersect {}", is_point_on_line2D(&line, &glm::vec2(x, y)));
+                    if is_point_on_line2D(&line, &glm::vec2(cx, cy), 0.001) {
+                        // last_cursor_coords = glm::vec2(x, y);
+                        // swipe_start = glm::unproject(
+                        //     &glm::vec3(x as f32, -y as f32, 0.),
+                        //     &view,
+                        //     &proj,
+                        //     glm::vec4(0., 0., 1., 1.),
+                        // );
+
+                        // let inverse_vp = glm::inverse(&(&proj * &view));
+                        // let screen_pos = glm::vec4(cx, -cy, 1.0, 1.0);
+                        // let world_pos = inverse_vp * screen_pos;
+                        // let dir = glm::vec4_to_vec3(&world_pos).normalize();
+
+                        drag_start = glm::vec2(cx, cy);
+                        drag_end = drag_start.clone();
+
+                        // swipe_end = swipe_start.clone();
+                        is_swiping = true;
+                    }
 
                     ()
                 }
@@ -453,6 +487,12 @@ fn main() {
                 } => {
                     // sdl.mouse().show_cursor(true);
                     is_camera_movement = false;
+                }
+                sdl2::event::Event::MouseButtonUp {
+                    mouse_btn: sdl2::mouse::MouseButton::Left,
+                    ..
+                } => {
+                    is_swiping = false;
                 }
                 sdl2::event::Event::MouseMotion { x, y, .. } => {
                     if is_camera_movement {
@@ -475,6 +515,22 @@ fn main() {
                         );
 
                         camera_front = direction.normalize();
+                    }
+
+                    if is_swiping {
+                        swipe_end = glm::unproject(
+                            &glm::vec3(x as f32, -y as f32, 0.),
+                            &view,
+                            &proj,
+                            glm::vec4(0., 0., 1., 1.),
+                        );
+
+                        swipe_end = glm::vec3(swipe_end.x, swipe_start.y, swipe_start.z);
+
+                        let cx = (x as f32) / (width as f32) * 2. - 1.;
+                        let cy = -((y as f32) / (height as f32) * 2. - 1.);
+
+                        drag_end = glm::vec2(cx, cy);
                     }
                 }
                 _ => {}
@@ -525,7 +581,18 @@ fn main() {
 
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
-            basic_shader.setMat4(&transform.get_mat4(), "model");
+
+            let diff = &(&drag_end - &drag_start);
+            let inverse_vp = glm::inverse(&(&proj * &view));
+            let screen_pos = glm::vec4(diff[0], diff[1], 1.0, 1.0);
+            let world_pos = inverse_vp * screen_pos;
+
+            let offset = glm::translate(
+                &transform.get_mat4(), //
+                &glm::vec3(world_pos[0], 0., 0.),
+            );
+
+            basic_shader.setMat4(&offset, "model");
             render_cube.draw(&basic_shader);
         }
 
@@ -535,7 +602,17 @@ fn main() {
         }
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
-            drawer.draw_gizmo(&transform.position, 1., 1.);
+
+            let diff = &(&drag_end - &drag_start);
+            let inverse_vp = glm::inverse(&(&proj * &view));
+            let screen_pos = glm::vec4(diff[0], diff[1], 1.0, 1.0);
+            let world_pos = inverse_vp * screen_pos;
+
+            drawer.draw_gizmo(
+                &(&transform.position + &glm::vec3(world_pos[0], 0., 0.)),
+                1.,
+                1.,
+            );
             break;
         }
         unsafe {
@@ -570,8 +647,8 @@ fn main() {
         // let r1 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
         // let r2 = Ray::new(&glm::vec3(-1., 2., 0.), &glm::vec3(1., 0., 0.));
 
-        drawer.draw_ray(&r1, 10.);
-        drawer.draw_ray(&r2, 10.);
+        // drawer.draw_ray(&r1, 10.);
+        // drawer.draw_ray(&r2, 10.);
 
         // println!("{}", aa);
 
