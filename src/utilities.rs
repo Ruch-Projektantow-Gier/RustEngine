@@ -1,4 +1,4 @@
-use crate::cube::Ray;
+use crate::cube::{Line2D, Ray};
 
 // http://geomalgorithms.com/a07-_distance.html
 pub fn ray_ray_distance(r1: &Ray, r2: &Ray) -> f32 {
@@ -33,4 +33,44 @@ pub fn ray_ray_distance(r1: &Ray, r2: &Ray) -> f32 {
 
 pub fn is_rays_intersect(r1: &Ray, r2: &Ray) -> bool {
     ray_ray_distance(r1, r2) < glm::epsilon()
+}
+
+pub fn is_point_on_line2D(line: &Line2D, point: &glm::Vec2) -> bool {
+    let dxc = point[0] - line.from[0];
+    let dyc = point[1] - line.from[1];
+
+    let dxl = line.to[0] - line.from[0];
+    let dyl = line.to[1] - line.from[1];
+
+    let cross = dxc * dyl - dyc * dxl;
+
+    let treshold = 0.05;
+
+    if cross.abs() > treshold {
+        false
+    } else {
+        if dxl.abs() >= dyl.abs() {
+            if dxl > 0. {
+                line.from[0] <= point[0] && point[0] <= line.to[0]
+            } else {
+                line.to[0] <= point[0] && point[0] <= line.from[0]
+            }
+        } else {
+            if dyl > 0. {
+                line.from[1] <= point[1] && point[1] <= line.to[1]
+            } else {
+                line.to[1] <= point[1] && point[1] <= line.from[1]
+            }
+        }
+    }
+
+    // println!(
+    //     "point {}",
+    //     &(glm::distance(&line.from, &point) + glm::distance(&point, &line.to)
+    //         - glm::distance(&line.from, &line.to))
+    // );
+    //
+    // glm::distance(&line.from, &point) + glm::distance(&point, &line.to)
+    //     - glm::distance(&line.from, &line.to)
+    //     < 0.01
 }

@@ -35,6 +35,43 @@ impl Ray {
     }
 }
 
+pub struct Line2D {
+    pub from: glm::Vec2,
+    pub to: glm::Vec2,
+}
+
+impl Line2D {
+    pub fn from_ray(
+        ray: &Ray,
+        length: f32,
+        proj: &glm::Mat4,
+        view: &glm::Mat4,
+        width: f32,
+        height: f32,
+    ) -> Line2D {
+        let to_ndc = |v: &glm::Vec2| {
+            glm::vec2(
+                v[0] / width * 2. - 1., //
+                v[1] / height * 2. - 1.,
+            )
+        };
+
+        let from = glm::project(&ray.origin, &view, &proj, glm::vec4(0., 0., width, height));
+
+        let to = glm::project(
+            &(&ray.origin + &ray.dir * length),
+            &view,
+            &proj,
+            glm::vec4(0., 0., width, height),
+        );
+
+        Self {
+            from: to_ndc(&glm::vec3_to_vec2(&from)),
+            to: to_ndc(&glm::vec3_to_vec2(&to)),
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub enum EFace {
     Right,

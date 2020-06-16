@@ -5,9 +5,9 @@ extern crate stb_image;
 use gl;
 // use imgui::*;
 
-use crate::cube::Ray;
+use crate::cube::{Line2D, Ray};
 use crate::texture::{Texture, TextureKind};
-use crate::utilities::is_rays_intersect;
+use crate::utilities::{is_point_on_line2D, is_rays_intersect};
 use std::rc::Rc;
 use std::time::SystemTime;
 
@@ -414,35 +414,26 @@ fn main() {
                     // }
                     // let r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
                     let x = (x as f32) / (width as f32) * 2. - 1.;
-                    let y = (y as f32) / (height as f32) * 2. - 1.;
+                    let y = -((y as f32) / (height as f32) * 2. - 1.);
 
-                    let inverse_vp = glm::inverse(&(&proj * &view));
-                    let screen_pos = glm::vec4(x, -y, 1.0, 1.0);
-                    let world_pos = inverse_vp * screen_pos;
-                    let dir = glm::vec4_to_vec3(&world_pos).normalize();
+                    // Creating ray from camera view
+                    // let inverse_vp = glm::inverse(&(&proj * &view));
+                    // let screen_pos = glm::vec4(x, -y, 1.0, 1.0);
+                    // let world_pos = inverse_vp * screen_pos;
+                    // let dir = glm::vec4_to_vec3(&world_pos).normalize();
+                    // r2 = Ray::new(&(&camera_pos), &dir);
+                    //
+                    // let result = is_rays_intersect(&r1, &r2);
+                    // println!("{}", result);
 
-                    // let dir = glm::normalize(
-                    //     &(glm::inverse(&(&proj * &view)) * glm::vec4(x, y, 1.0, 1.0)),
-                    // );
+                    // Creating line
+                    let line =
+                        Line2D::from_ray(&r1, 10.0, &proj, &view, width as f32, height as f32);
 
-                    // let test = glm::unproject(
-                    //     &glm::vec3(x, y, 1.),
-                    //     &glm::inverse(&view),
-                    //     &proj,
-                    //     glm::vec4(
-                    //         -(width as f32) / 2.,
-                    //         (width as f32) / 2.,
-                    //         (width as f32) / 2.,
-                    //         -(width as f32) / 2.,
-                    //     ),
-                    // );
-
-                    // println!("{}", test);
-
-                    r2 = Ray::new(&(&camera_pos), &dir);
-
-                    let result = is_rays_intersect(&r1, &r2);
-                    println!("{}", result);
+                    // println!("from {}", line.from);
+                    // println!("to {}", line.to);
+                    // println!("point {}", &glm::vec2(x, y));
+                    println!("intersect {}", is_point_on_line2D(&line, &glm::vec2(x, y)));
 
                     ()
                 }
@@ -581,6 +572,9 @@ fn main() {
 
         drawer.draw_ray(&r1, 10.);
         drawer.draw_ray(&r2, 10.);
+
+        // println!("{}", aa);
+
         // drawer.draw_ray(&r2, 2.);
 
         // Grid
