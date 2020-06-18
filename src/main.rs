@@ -9,6 +9,7 @@ use crate::cube::{Line2D, Ray};
 use crate::texture::{Texture, TextureKind};
 use crate::utilities::{is_point_on_line2D, is_rays_intersect};
 use glm::translate;
+use std::env::current_dir;
 use std::ptr::null;
 use std::rc::Rc;
 use std::time::SystemTime;
@@ -296,6 +297,8 @@ fn main() {
     //     scale: glm::vec3(100., 1., 100.),
     // }));
 
+    let mut rays = vec![];
+
     let mut r1 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
     let mut r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
     let mut is_swiping = false;
@@ -303,6 +306,7 @@ fn main() {
     let mut swipe_end = glm::vec3(0., 0., 0.);
     let mut offset_ray = glm::vec3(0., 0., 0.);
 
+    let mut cursor = glm::vec2(0, 0);
     let mut drag_start = glm::vec2(0, 0);
     let mut drag_end = glm::vec2(0, 0);
 
@@ -341,6 +345,45 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::Q),
+                    ..
+                } => {
+                    // screen is like 0-width, 0-height (not -1.0 and 1.0)
+                    let world_to_screen = |obj: &glm::Vec3| {
+                        glm::project(
+                            &obj,
+                            &view,
+                            &proj,
+                            glm::vec4(0., 0., width as f32, height as f32),
+                        )
+                    };
+
+                    let screen_to_world = |obj: &glm::Vec3| {
+                        glm::unproject(
+                            &obj,
+                            &view,
+                            &proj,
+                            glm::vec4(0., 0., width as f32, height as f32),
+                        )
+                    };
+
+                    // Mouse start
+                    let cursor_start_screen =
+                        glm::vec3(cursor.x as f32, (height - cursor.y as u32) as f32, 0.);
+                    let dir = (screen_to_world(&cursor_start_screen) - &camera_pos).normalize();
+
+                    //
+                    let plane_normal = glm::vec3(0., 1., 0.);
+                    let nd = glm::dot(&dir, &plane_normal);
+                    let pn = glm::dot(&camera_pos, &plane_normal);
+
+                    let t = pn / nd;
+
+                    // let ray = Ray::new(&camera_pos, &dir);
+                    let ray = (camera_pos.clone(), &camera_pos - dir * t);
+                    rays.push(ray);
+                }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::D),
                     ..
@@ -496,6 +539,8 @@ fn main() {
                     is_swiping = false;
                 }
                 sdl2::event::Event::MouseMotion { x, y, .. } => {
+                    cursor = glm::vec2(x, y);
+
                     if is_camera_movement {
                         let x_offset = x - last_cursor_coords[0];
                         let y_offset = last_cursor_coords[1] - y;
@@ -612,25 +657,35 @@ fn main() {
                 )
             };
 
-            // let diff_screen = &(&drag_end - &drag_start);
-            // Mouse start
-            let obj_screen = &world_to_screen(&transform.position);
-            let cursor_start_screen =
-                glm::vec3(drag_start.x as f32, -drag_start.y as f32, obj_screen.z);
-            let cursor_start_world = screen_to_world(&cursor_start_screen);
+            let get_point_on_plane = |screen_point: &glm::TVec2<i32>, normal: &glm::Vec3| {
+                // direction from camera
+                let cursor_from_camera_dir = (screen_to_world(&glm::vec3(
+                    screen_point.x as f32,
+                    height as f32 - screen_point.y as f32,
+                    0.,
+                )) - &camera_pos)
+                    .normalize();
 
-            // Mouse end
-            let cursor_end_screen = glm::vec3(drag_end.x as f32, -drag_end.y as f32, obj_screen.z);
-            let cursor_end_world = screen_to_world(&cursor_end_screen);
-            let offset_world = &cursor_end_world - &cursor_start_world;
+                // create plane
+                let plane_normal = glm::vec3(0., 1., 0.);
+                let nd = glm::dot(&cursor_from_camera_dir, &plane_normal);
+                let pn = glm::dot(&camera_pos, &plane_normal);
 
-            let cos_angle = glm::dot(&cursor_start_world, &cursor_end_world);
-            let c = transform.position.z / cos_angle;
+                let t = pn / nd; // distance
+
+                // get point
+                &camera_pos - cursor_from_camera_dir * t
+            };
+
+            let plane_normal = glm::vec3(0., 1., 0.);
+            let p1 = get_point_on_plane(&drag_start, &plane_normal);
+            let p2 = get_point_on_plane(&drag_end, &plane_normal);
+
+            let diff = p2 - p1;
 
             //
-
             let axis = &glm::vec3(1.0, 0., 0.);
-            let offset_proj_length = glm::dot(&offset_world, &axis);
+            let offset_proj_length = glm::dot(&diff, &axis);
             let offset_proj = axis * offset_proj_length;
             // let offset_proj = offset_world;
 
@@ -653,7 +708,51 @@ fn main() {
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
 
-            drawer.draw_gizmo(&(&transform.position), 1., 1.);
+            let world_to_screen = |obj: &glm::Vec3| {
+                glm::project(
+                    &obj,
+                    &view,
+                    &proj,
+                    glm::vec4(0., 0., width as f32, height as f32),
+                )
+            };
+
+            let screen_to_world = |obj: &glm::Vec3| {
+                glm::unproject(
+                    &obj,
+                    &view,
+                    &proj,
+                    glm::vec4(0., 0., width as f32, height as f32),
+                )
+            };
+
+            // let diff_screen = &(&drag_end - &drag_start);
+            // Mouse start
+            let obj_screen = &world_to_screen(&transform.position);
+            let cursor_start_screen =
+                glm::vec3(drag_start.x as f32, -drag_start.y as f32, obj_screen.z);
+            let cursor_start_world = screen_to_world(&cursor_start_screen);
+
+            // Mouse end
+            let cursor_end_screen = glm::vec3(drag_end.x as f32, -drag_end.y as f32, obj_screen.z);
+            let cursor_end_world = screen_to_world(&cursor_end_screen);
+            let offset_world = &cursor_end_world - &cursor_start_world;
+
+            //
+            let axis = &glm::vec3(1.0, 0., 0.);
+            let offset_proj_length = glm::dot(&offset_world, &axis);
+            let offset_proj = axis * offset_proj_length;
+            // let offset_proj = offset_world;
+
+            let mut result_mat4;
+
+            if is_swiping {
+                result_mat4 = glm::translate(&transform.get_mat4(), &offset_proj);
+            } else {
+                result_mat4 = transform.get_mat4();
+            }
+
+            drawer.draw_gizmo(&offset_proj, 1., 1.);
             break;
         }
         unsafe {
@@ -694,6 +793,14 @@ fn main() {
         // println!("{}", aa);
 
         // drawer.draw_ray(&r2, 2.);
+
+        for &(from, to) in &rays {
+            drawer.draw(&from, &to);
+        }
+
+        // for ray in &rays {
+        //     drawer.draw_ray(&ray, 200.);
+        // }
 
         // Grid
         let mut grid_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
