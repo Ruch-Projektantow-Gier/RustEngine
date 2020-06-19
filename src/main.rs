@@ -5,6 +5,7 @@ extern crate stb_image;
 use gl;
 // use imgui::*;
 
+use crate::camera::{Camera, CameraMovement};
 use crate::cube::{Line2D, Ray};
 use crate::texture::{Texture, TextureKind};
 use crate::utilities::{is_point_on_line2D, is_rays_intersect};
@@ -14,6 +15,7 @@ use std::ptr::null;
 use std::rc::Rc;
 use std::time::SystemTime;
 
+mod camera;
 mod cube;
 mod debug;
 mod primitives;
@@ -24,16 +26,6 @@ mod utilities;
 
 type Mat4 = glm::Mat4;
 type Vec3f = glm::Vec3;
-
-struct PointLight {
-    color: glm::Vec4,
-    position: glm::Vec4,
-    padding_and_radius: glm::Vec4,
-}
-
-struct VisibleIndex {
-    index: i32,
-}
 
 struct SceneBuffer {
     is_first: bool,
@@ -78,7 +70,7 @@ impl<T: std::clone::Clone> DoubleBuffered<T> {
         }
     }
 
-    pub fn get_last(&self, scene_buffer: &SceneBuffer) -> &T {
+    pub fn get_prev(&self, scene_buffer: &SceneBuffer) -> &T {
         if !scene_buffer.is_first {
             &self.first
         } else {
@@ -112,11 +104,6 @@ impl TransformComponent {
 }
 
 fn main() {
-    let width = 900;
-    let height = 700;
-    let near = 0.1;
-    let far = 300.;
-
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
 
@@ -130,8 +117,11 @@ fn main() {
     gl_attr.set_multisample_buffers(1);
     gl_attr.set_multisample_samples(8);
 
+    // Camera
+    let mut camera = Camera::new();
+
     let window = video_subsystem
-        .window("Game", width, height)
+        .window("Game", camera.screen_width, camera.screen_height)
         .opengl()
         .resizable()
         .build()
@@ -155,21 +145,6 @@ fn main() {
     /////////////////////////////////////
     let debug = debug::Debug::new(&gl);
     texture::Texture::init(&gl); // anisotropic
-
-    // let supplied_cube = primitives::compute_tangent_basis(&primitives::CUBE.to_vec());
-    // let render_cube = primitives::create(
-    //     &gl,
-    //     &supplied_cube,
-    //     &[
-    //         3, /* verticles */
-    //         3, /* normals */
-    //         2, /* texture coords */
-    //         3, /* tangent */
-    //         3, /* bitangent */
-    //     ],
-    //     vec![],
-    // );
-    //
 
     let diffuse_texture = Texture::from(&gl, "res/wall.jpg").expect("Cannot load texture");
     let diffuse_texture2 = Texture::from(&gl, "res/dirt.png").expect("Cannot load texture");
@@ -205,7 +180,7 @@ fn main() {
 
     // Framebuffer
     let mut fbo: GlInt = 0;
-    let screen_texture = Texture::new(&gl, width, height);
+    let screen_texture = Texture::new(&gl, camera.screen_width, camera.screen_height);
     unsafe {
         gl.GenFramebuffers(1, &mut fbo);
         gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
@@ -230,8 +205,8 @@ fn main() {
         gl.RenderbufferStorage(
             gl::RENDERBUFFER,
             gl::DEPTH24_STENCIL8,
-            width as gl::types::GLint,
-            height as gl::types::GLint,
+            camera.screen_width as gl::types::GLint,
+            camera.screen_height as gl::types::GLint,
         );
 
         // attaching, also added by me
@@ -259,10 +234,14 @@ fn main() {
 
     /* Projection quad */
     let render_quad = primitives::build_quad(&gl, vec![(&screen_texture, TextureKind::Diffuse)]);
-    // let screen_model_mat4 = &glm::one::<Mat4>() * glm::scaling(&glm::vec3(0.1, 0.1, 0.1));
 
     unsafe {
-        gl.Viewport(0, 0, width as gl::types::GLint, height as gl::types::GLint);
+        gl.Viewport(
+            0,
+            0,
+            camera.screen_width as gl::types::GLint,
+            camera.screen_height as gl::types::GLint,
+        );
         gl.ClearColor(0.1, 0.1, 0.1, 1.);
     }
 
@@ -282,7 +261,7 @@ fn main() {
     //     scale: glm::vec3(1., 1., 1.),
     // }));
     cubes.push(DoubleBuffered::new(TransformComponent {
-        position: glm::vec3(0., 0., 0.),
+        position: glm::vec3(0., 0.5, 0.),
         rotation: glm::quat_identity(),
         scale: glm::vec3(1., 1., 1.),
     }));
@@ -299,23 +278,10 @@ fn main() {
 
     let mut rays = vec![];
 
-    let mut r1 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
-    let mut r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
-    let mut is_swiping = false;
-    let mut swipe_start = glm::vec3(0., 0., 0.);
-    let mut swipe_end = glm::vec3(0., 0., 0.);
-    let mut offset_ray = glm::vec3(0., 0., 0.);
-
-    let mut cursor = glm::vec2(0, 0);
+    // dragging gizmo
+    let mut is_dragging = false;
     let mut drag_start = glm::vec2(0, 0);
     let mut drag_end = glm::vec2(0, 0);
-
-    // Camera
-    let camera_speed = 0.1;
-    let mut camera_pos = glm::vec3(0., 4., 6.);
-    let mut camera_front = glm::vec3(0., -4., -6.);
-    let mut camera_up = glm::vec3(0., 1., 0.);
-    let mut camera_movement = glm::vec2(0, 0);
 
     let mut last_cursor_coords = glm::vec2(0 as i32, 0 as i32);
     let mut is_camera_movement = false;
@@ -332,10 +298,6 @@ fn main() {
     // Events
     let mut event_pump = sdl.event_pump().unwrap();
 
-    // MATRIXES
-    let proj = glm::perspective((width / height) as f32, 45.0, near, far);
-    let mut view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
-
     'main: loop {
         let current = SystemTime::now();
         let elapsed = current.duration_since(previous).unwrap();
@@ -349,108 +311,98 @@ fn main() {
                     keycode: Some(sdl2::keyboard::Keycode::Q),
                     ..
                 } => {
-                    // screen is like 0-width, 0-height (not -1.0 and 1.0)
-                    let world_to_screen = |obj: &glm::Vec3| {
-                        glm::project(
-                            &obj,
-                            &view,
-                            &proj,
-                            glm::vec4(0., 0., width as f32, height as f32),
-                        )
-                    };
-
-                    let screen_to_world = |obj: &glm::Vec3| {
-                        glm::unproject(
-                            &obj,
-                            &view,
-                            &proj,
-                            glm::vec4(0., 0., width as f32, height as f32),
-                        )
-                    };
-
-                    // Mouse start
-                    let cursor_start_screen =
-                        glm::vec3(cursor.x as f32, (height - cursor.y as u32) as f32, 0.);
-                    let dir = (screen_to_world(&cursor_start_screen) - &camera_pos).normalize();
-
-                    //
-                    let plane_normal = glm::vec3(0., 1., 0.);
-                    let nd = glm::dot(&dir, &plane_normal);
-                    let pn = glm::dot(&camera_pos, &plane_normal);
-
-                    let t = pn / nd;
-
-                    // let ray = Ray::new(&camera_pos, &dir);
-                    let ray = (camera_pos.clone(), &camera_pos - dir * t);
-                    rays.push(ray);
+                    // let ray = (camera_pos.clone(), &camera_pos - dir * t);
+                    // rays.push(ray);
                 }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::D),
                     ..
                 } => {
-                    camera_movement[0] = 1;
+                    camera.set_move_x(CameraMovement::POSITIVE);
                 }
                 sdl2::event::Event::KeyUp {
                     keycode: Some(sdl2::keyboard::Keycode::D),
                     ..
                 } => {
-                    if camera_movement[0] == 1 {
-                        camera_movement[0] = 0;
-                    }
+                    match camera.move_x {
+                        CameraMovement::POSITIVE => camera.set_move_x(CameraMovement::NONE),
+                        _ => {}
+                    };
                 }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::A),
                     ..
                 } => {
-                    camera_movement[0] = -1;
+                    camera.set_move_x(CameraMovement::NEGATIVE);
                 }
                 sdl2::event::Event::KeyUp {
                     keycode: Some(sdl2::keyboard::Keycode::A),
                     ..
                 } => {
-                    if camera_movement[0] == -1 {
-                        camera_movement[0] = 0;
-                    }
+                    match camera.move_x {
+                        CameraMovement::NEGATIVE => camera.set_move_x(CameraMovement::NONE),
+                        _ => {}
+                    };
                 }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::W),
                     ..
                 } => {
-                    camera_movement[1] = 1;
+                    camera.set_move_z(CameraMovement::POSITIVE);
                 }
                 sdl2::event::Event::KeyUp {
                     keycode: Some(sdl2::keyboard::Keycode::W),
                     ..
                 } => {
-                    if camera_movement[1] == 1 {
-                        camera_movement[1] = 0;
-                    }
+                    match camera.move_z {
+                        CameraMovement::POSITIVE => camera.set_move_z(CameraMovement::NONE),
+                        _ => {}
+                    };
                 }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::S),
                     ..
                 } => {
-                    camera_movement[1] = -1;
+                    camera.set_move_z(CameraMovement::NEGATIVE);
                 }
                 sdl2::event::Event::KeyUp {
                     keycode: Some(sdl2::keyboard::Keycode::S),
                     ..
                 } => {
-                    if camera_movement[1] == -1 {
-                        camera_movement[1] = 0;
-                    }
+                    match camera.move_z {
+                        CameraMovement::NEGATIVE => camera.set_move_z(CameraMovement::NONE),
+                        _ => {}
+                    };
                 }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::Space),
                     ..
                 } => {
-                    camera_pos += &camera_up * camera_speed;
+                    camera.set_move_y(CameraMovement::POSITIVE);
+                }
+                sdl2::event::Event::KeyUp {
+                    keycode: Some(sdl2::keyboard::Keycode::Space),
+                    ..
+                } => {
+                    match camera.move_y {
+                        CameraMovement::POSITIVE => camera.set_move_y(CameraMovement::NONE),
+                        _ => {}
+                    };
                 }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::LCtrl),
                     ..
                 } => {
-                    camera_pos -= &camera_up * camera_speed;
+                    camera.set_move_y(CameraMovement::NEGATIVE);
+                }
+                sdl2::event::Event::KeyUp {
+                    keycode: Some(sdl2::keyboard::Keycode::LCtrl),
+                    ..
+                } => {
+                    match camera.move_y {
+                        CameraMovement::NEGATIVE => camera.set_move_y(CameraMovement::NONE),
+                        _ => {}
+                    };
                 }
                 sdl2::event::Event::MouseButtonDown {
                     mouse_btn: sdl2::mouse::MouseButton::Left,
@@ -458,59 +410,15 @@ fn main() {
                     y,
                     ..
                 } => {
-                    // match &candidate {
-                    //     Some(pos) => {
-                    //         cubes.push(pos * cube::CUBE_SIZE);
-                    //     }
-                    //     None => {}
-                    // }
-                    // let r2 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
-
-                    let cx = (x as f32) / (width as f32) * 2. - 1.;
-                    let cy = -((y as f32) / (height as f32) * 2. - 1.);
-
-                    // Creating ray from camera view
-                    // let inverse_vp = glm::inverse(&(&proj * &view));
-                    // let screen_pos = glm::vec4(x, -y, 1.0, 1.0);
-                    // let world_pos = inverse_vp * screen_pos;
-                    // let dir = glm::vec4_to_vec3(&world_pos).normalize();
-                    // r2 = Ray::new(&(&camera_pos), &dir);
-                    //
-                    // let result = is_rays_intersect(&r1, &r2);
-                    // println!("{}", result);
-
-                    // let mut offset = glm::vec3(0., 0., 0.);
-                    // for cube in &cubes {
-                    //     let transform = cube.get(&scene_buffer);
-                    //     offset = &transform.position + &(&swipe_end - &swipe_start);
-                    //     break;
-                    // }
-
-                    r1 = Ray::new(&glm::vec3(0., 0., 0.), &glm::vec3(1., 0., 0.));
-
                     // Creating line
-                    let line =
-                        Line2D::from_ray(&r1, 1.0, &proj, &view, width as f32, height as f32);
+                    let ray = Ray::new(&glm::vec3(0., 0.5, 0.), &glm::vec3(1., 0., 0.));
+                    let line = camera.line_from_ray(&ray, 1.0);
 
-                    if is_point_on_line2D(&line, &glm::vec2(cx, cy), 0.001) {
-                        // last_cursor_coords = glm::vec2(x, y);
-                        // swipe_start = glm::unproject(
-                        //     &glm::vec3(x as f32, -y as f32, 0.),
-                        //     &view,
-                        //     &proj,
-                        //     glm::vec4(0., 0., 1., 1.),
-                        // );
-
-                        // let inverse_vp = glm::inverse(&(&proj * &view));
-                        // let screen_pos = glm::vec4(cx, -cy, 1.0, 1.0);
-                        // let world_pos = inverse_vp * screen_pos;
-                        // let dir = glm::vec4_to_vec3(&world_pos).normalize();
-
+                    if is_point_on_line2D(&line, &camera.cursor_to_screen(&glm::vec2(x, y)), 1.0) {
                         drag_start = glm::vec2(x, y);
                         drag_end = drag_start.clone();
 
-                        // swipe_end = swipe_start.clone();
-                        is_swiping = true;
+                        is_dragging = true;
                     }
 
                     ()
@@ -521,7 +429,7 @@ fn main() {
                     y,
                     ..
                 } => {
-                    // sdl.mouse().show_cursor(false);
+                    sdl.mouse().show_cursor(false);
                     is_camera_movement = true;
                     last_cursor_coords = glm::vec2(x, y);
                 }
@@ -529,23 +437,21 @@ fn main() {
                     mouse_btn: sdl2::mouse::MouseButton::Right,
                     ..
                 } => {
-                    // sdl.mouse().show_cursor(true);
+                    sdl.mouse().show_cursor(true);
                     is_camera_movement = false;
                 }
                 sdl2::event::Event::MouseButtonUp {
                     mouse_btn: sdl2::mouse::MouseButton::Left,
                     ..
                 } => {
-                    is_swiping = false;
+                    drag_start = glm::vec2(0, 0);
+                    drag_end = drag_start.clone();
+                    is_dragging = false;
                 }
                 sdl2::event::Event::MouseMotion { x, y, .. } => {
-                    cursor = glm::vec2(x, y);
-
                     if is_camera_movement {
                         let x_offset = x - last_cursor_coords[0];
                         let y_offset = last_cursor_coords[1] - y;
-
-                        last_cursor_coords = glm::vec2(x, y);
 
                         yaw += cam_sensitive * x_offset as f32;
                         pitch += cam_sensitive * y_offset as f32;
@@ -560,24 +466,14 @@ fn main() {
                             yaw.to_radians().sin() * pitch.to_radians().cos(),
                         );
 
-                        camera_front = direction.normalize();
+                        camera.set_direction(direction.normalize());
                     }
 
-                    if is_swiping {
-                        // swipe_end = glm::unproject(
-                        //     &glm::vec3(x as f32, -y as f32, 0.),
-                        //     &view,
-                        //     &proj,
-                        //     glm::vec4(0., 0., 1., 1.),
-                        // );
-
-                        // swipe_end = glm::vec3(swipe_end.x, swipe_start.y, swipe_start.z);
-
-                        // let cx = (x as f32) / (width as f32) * 2. - 1.;
-                        // let cy = -((y as f32) / (height as f32) * 2. - 1.);
-
+                    if is_dragging {
                         drag_end = glm::vec2(x, y);
                     }
+
+                    last_cursor_coords = glm::vec2(x, y);
                 }
                 _ => {}
             }
@@ -588,10 +484,7 @@ fn main() {
                 break 'logic;
             }
 
-            camera_pos += glm::normalize(&glm::cross(&camera_front, &camera_up))
-                * camera_speed
-                * camera_movement[0] as f32;
-            camera_pos += &camera_front * camera_speed * camera_movement[1] as f32;
+            camera.update();
 
             // update
             lag -= s_per_update;
@@ -603,9 +496,6 @@ fn main() {
         unsafe {
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
-
-        // MATRIXES
-        view = glm::look_at(&camera_pos, &(&camera_pos + &camera_front), &camera_up);
 
         // 1. Drawing on added offscreen framebuffer (with depth and stencil)
         unsafe {
@@ -620,78 +510,27 @@ fn main() {
 
         // Render to offscreen buffer
         basic_shader.bind();
-        basic_shader.setMat4(&proj, "projection");
-        basic_shader.setMat4(&view, "view");
+        basic_shader.setMat4(&camera.projection, "projection");
+        basic_shader.setMat4(&camera.view, "view");
 
-        let drawer = debug.setup_drawer(&view, &proj);
+        let drawer = debug.setup_drawer(&camera.view, &camera.projection);
 
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
 
-            // let diff = &(&drag_end - &drag_start);
-            // let inverse_vp = glm::inverse(&(&proj * &view));
-            // let screen_pos = glm::vec4(diff[0], diff[1], 1.0, 1.0);
-            // let world_pos = inverse_vp * screen_pos;
-            //
-            // let offset = glm::translate(
-            //     &transform.get_mat4(), //
-            //     &glm::vec3(world_pos[0], 0., 0.),
-            // );
-
-            // screen is like 0-width, 0-height (not -1.0 and 1.0)
-            let world_to_screen = |obj: &glm::Vec3| {
-                glm::project(
-                    &obj,
-                    &view,
-                    &proj,
-                    glm::vec4(0., 0., width as f32, height as f32),
-                )
-            };
-
-            let screen_to_world = |obj: &glm::Vec3| {
-                glm::unproject(
-                    &obj,
-                    &view,
-                    &proj,
-                    glm::vec4(0., 0., width as f32, height as f32),
-                )
-            };
-
-            let get_point_on_plane = |screen_point: &glm::TVec2<i32>, normal: &glm::Vec3| {
-                // direction from camera
-                let cursor_from_camera_dir = (screen_to_world(&glm::vec3(
-                    screen_point.x as f32,
-                    height as f32 - screen_point.y as f32,
-                    0.,
-                )) - &camera_pos)
-                    .normalize();
-
-                // create plane
-                let plane_normal = glm::vec3(0., 1., 0.);
-                let nd = glm::dot(&cursor_from_camera_dir, &plane_normal);
-                let pn = glm::dot(&camera_pos, &plane_normal);
-
-                let t = pn / nd; // distance
-
-                // get point
-                &camera_pos - cursor_from_camera_dir * t
-            };
-
             let plane_normal = glm::vec3(0., 1., 0.);
-            let p1 = get_point_on_plane(&drag_start, &plane_normal);
-            let p2 = get_point_on_plane(&drag_end, &plane_normal);
+            let p1 = camera.cast_cursor_on_plane(&drag_start, &plane_normal);
+            let p2 = camera.cast_cursor_on_plane(&drag_end, &plane_normal);
 
             let diff = p2 - p1;
 
-            //
             let axis = &glm::vec3(1.0, 0., 0.);
             let offset_proj_length = glm::dot(&diff, &axis);
             let offset_proj = axis * offset_proj_length;
-            // let offset_proj = offset_world;
 
             let mut result_mat4;
 
-            if is_swiping {
+            if is_dragging {
                 result_mat4 = glm::translate(&transform.get_mat4(), &offset_proj);
             } else {
                 result_mat4 = transform.get_mat4();
@@ -708,52 +547,17 @@ fn main() {
         for cube in &cubes {
             let transform = cube.get(&scene_buffer);
 
-            let world_to_screen = |obj: &glm::Vec3| {
-                glm::project(
-                    &obj,
-                    &view,
-                    &proj,
-                    glm::vec4(0., 0., width as f32, height as f32),
-                )
-            };
+            let plane_normal = glm::vec3(0., 1., 0.);
+            let p1 = camera.cast_cursor_on_plane(&drag_start, &plane_normal);
+            let p2 = camera.cast_cursor_on_plane(&drag_end, &plane_normal);
 
-            let screen_to_world = |obj: &glm::Vec3| {
-                glm::unproject(
-                    &obj,
-                    &view,
-                    &proj,
-                    glm::vec4(0., 0., width as f32, height as f32),
-                )
-            };
+            let diff = p2 - p1;
 
-            // let diff_screen = &(&drag_end - &drag_start);
-            // Mouse start
-            let obj_screen = &world_to_screen(&transform.position);
-            let cursor_start_screen =
-                glm::vec3(drag_start.x as f32, -drag_start.y as f32, obj_screen.z);
-            let cursor_start_world = screen_to_world(&cursor_start_screen);
-
-            // Mouse end
-            let cursor_end_screen = glm::vec3(drag_end.x as f32, -drag_end.y as f32, obj_screen.z);
-            let cursor_end_world = screen_to_world(&cursor_end_screen);
-            let offset_world = &cursor_end_world - &cursor_start_world;
-
-            //
             let axis = &glm::vec3(1.0, 0., 0.);
-            let offset_proj_length = glm::dot(&offset_world, &axis);
-            let offset_proj = axis * offset_proj_length;
-            // let offset_proj = offset_world;
-
-            let mut result_mat4;
-
-            if is_swiping {
-                result_mat4 = glm::translate(&transform.get_mat4(), &offset_proj);
-            } else {
-                result_mat4 = transform.get_mat4();
-            }
+            let offset_proj_length = glm::dot(&diff, &axis);
+            let offset_proj = &transform.position + axis * offset_proj_length;
 
             drawer.draw_gizmo(&offset_proj, 1., 1.);
-            break;
         }
         unsafe {
             gl.Enable(gl::DEPTH_TEST);
@@ -767,48 +571,26 @@ fn main() {
         }
 
         color_shader.bind();
-        color_shader.setMat4(&proj, "projection");
-        color_shader.setMat4(&view, "view");
+        color_shader.setMat4(&camera.projection, "projection");
+        color_shader.setMat4(&camera.view, "view");
         color_shader.setMat4(&sphere_model, "model");
         color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.5), "color");
-        // render_sphere.draw_mesh(1.);
-        // render_sphere.draw_vertices(5.);
-        // render_pyramid.draw_mesh(1.);
 
-        // render_pyramid.draw(&color_shader);
-
-        //
-
-        // basic_shader.bind();
-        // basic_shader.setMat4(&sphere_model, "model");
-        // render_sphere.draw(&basic_shader);
-
-        // Ray tests
-        // let r1 = Ray::new(&glm::vec3(0., 3., -1.), &glm::vec3(0., 0., 1.));
-        // let r2 = Ray::new(&glm::vec3(-1., 2., 0.), &glm::vec3(1., 0., 0.));
-
-        // drawer.draw_ray(&r1, 10.);
-        // drawer.draw_ray(&r2, 10.);
-
-        // println!("{}", aa);
-
-        // drawer.draw_ray(&r2, 2.);
-
-        for &(from, to) in &rays {
-            drawer.draw(&from, &to);
-        }
-
-        // for ray in &rays {
-        //     drawer.draw_ray(&ray, 200.);
+        // for &(from, to) in &rays {
+        //     drawer.draw(&from, &to);
         // }
+
+        for ray in &rays {
+            drawer.draw_ray(ray, 50.);
+        }
 
         // Grid
         let mut grid_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
         grid_model *= glm::scaling(&glm::vec3(5., 5., 5.));
 
         color_shader.bind();
-        color_shader.setMat4(&proj, "projection");
-        color_shader.setMat4(&view, "view");
+        color_shader.setMat4(&camera.projection, "projection");
+        color_shader.setMat4(&camera.view, "view");
         color_shader.setMat4(&grid_model, "model");
         color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.1), "color");
         render_grid.draw_lines(1.);
@@ -830,8 +612,8 @@ fn main() {
         // gui
         let test = glm::unproject(
             &glm::vec3(0.05, 0.05, 0.5),
-            &view,
-            &proj,
+            &camera.view,
+            &camera.projection,
             glm::vec4(0., 0., 1., 1.),
         );
         drawer.draw_gizmo(&test, 0.01, 0.5);

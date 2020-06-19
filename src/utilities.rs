@@ -67,6 +67,7 @@ pub fn is_point_on_line2D(line: &Line2D, point: &glm::Vec2, treshold: f32) -> bo
     //     &(glm::distance(&line.from, &point) + glm::distance(&point, &line.to)
     //         - glm::distance(&line.from, &line.to))
     // );
+
     //
     glm::distance(&line.from, &point) + glm::distance(&point, &line.to)
         - glm::distance(&line.from, &line.to)
