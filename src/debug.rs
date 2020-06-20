@@ -104,6 +104,7 @@ impl<'a> DebugDrawer<'a> {
             self.debug.shader.setMat4(&model, "model");
 
             self.debug.gl.DrawArrays(gl::LINES, 0, 2);
+
             self.debug.gl.BindVertexArray(0);
         }
 
@@ -165,6 +166,7 @@ impl<'a> DebugDrawer<'a> {
     }
 
     pub fn draw_gizmo(&self, pos: &glm::Vec3, length: f32, weight: f32) {
+        unsafe { self.debug.gl.Disable(gl::DEPTH_TEST) }
         self.draw_color(
             pos,
             &(pos + glm::vec3(1. * length, 0., 0.)),
@@ -183,6 +185,7 @@ impl<'a> DebugDrawer<'a> {
             &glm::vec4(0., 0., 1., 1.),
             weight,
         );
+        unsafe { self.debug.gl.Enable(gl::DEPTH_TEST) }
     }
 }
 

@@ -3,19 +3,21 @@ use crate::components::TransformComponent;
 use crate::cube::Ray;
 use crate::debug::DebugDrawer;
 use crate::utilities::is_point_on_line2D;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 type MousePos = glm::TVec2<i32>;
+type TargetPtr = Rc<RefCell<TransformComponent>>;
 
-pub struct Gizmo<'a> {
-    target: Option<&'a mut TransformComponent>,
+pub struct Gizmo {
+    target: Option<TargetPtr>,
 
     is_dragging: bool,
     mouse_start: MousePos,
     mouse_end: MousePos,
 }
 
-impl<'a> Gizmo<'a> {
+impl Gizmo {
     pub fn new() -> Self {
         Self {
             target: None,
@@ -25,7 +27,7 @@ impl<'a> Gizmo<'a> {
         }
     }
 
-    pub fn target(&mut self, target: &'a mut TransformComponent) {
+    pub fn target(&mut self, target: TargetPtr) {
         self.target = Some(target);
     }
 
@@ -36,6 +38,7 @@ impl<'a> Gizmo<'a> {
     pub fn click(&mut self, camera: &Camera, x: i32, y: i32) {
         match &self.target {
             Some(target) => {
+                let target = target.borrow();
                 let point = glm::vec2(x, y);
 
                 // Creating line
@@ -63,8 +66,12 @@ impl<'a> Gizmo<'a> {
             return;
         }
 
+        self.mouse_end = glm::vec2(x, y);
+
         match &mut self.target {
             Some(target) => {
+                let mut target = target.borrow_mut();
+
                 // todo y, z
                 let plane_normal = glm::vec3(0., 1., 0.);
                 let p1 = camera.cast_cursor_on_plane(&self.mouse_start, &plane_normal);
@@ -86,6 +93,7 @@ impl<'a> Gizmo<'a> {
     pub fn draw(&self, drawer: &DebugDrawer) {
         match &self.target {
             Some(target) => {
+                let target = target.borrow();
                 drawer.draw_gizmo(&target.position, 1., 1.);
             }
             _ => {}

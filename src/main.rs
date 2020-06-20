@@ -177,16 +177,19 @@ fn main() {
     /////////////////////////////////////
 
     // Cubes
-    let mut target_cube = TransformComponent::new(
+    let target_cube = TransformComponent::new(
         glm::vec3(0., 0.5, 0.),
         glm::quat_identity(),
         glm::vec3(1., 1., 1.),
-    )
-    .buffer();
+    );
+
+    // let cube_ptr = Rc::new(RefCell::new(target_cube));
+    let cube_ptr = Rc::new(RefCell::new(target_cube));
 
     let mut scene_buffer = SceneBuffer::new();
     let mut cubes = vec![];
-    cubes.push(&mut target_cube);
+    cubes.push(cube_ptr.clone());
+    gizmo.target(cube_ptr.clone());
 
     /////////////////////////////////////
     let mut rays = vec![];
@@ -382,7 +385,7 @@ fn main() {
         let drawer = debug.setup_drawer(&camera.view, &camera.projection);
 
         for cube in &cubes {
-            basic_shader.setMat4(&cube.interpolate(&scene_buffer, alpha).mat4(), "model");
+            basic_shader.setMat4(&cube.borrow().mat4(), "model");
             render_cube.draw(&basic_shader);
         }
 
