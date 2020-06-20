@@ -20,7 +20,7 @@ pub struct Camera {
     pub view: glm::Mat4,
 
     position: glm::Vec3,
-    direction: glm::Vec3, // normalized
+    pub direction: glm::Vec3, // normalized
 
     // movement
     speed: f32,
@@ -217,19 +217,20 @@ impl Camera {
         &self,
         cursor: &glm::TVec2<i32>,
         plane_normal: &glm::Vec3,
+        plane_origin_offset: &glm::Vec3,
     ) -> glm::Vec3 {
         let screen = self.cursor_to_screen(cursor);
 
         // direction from camera
-        let cursor_from_camera_dir =
-            (self.screen_to_world(&glm::vec3(screen.x, screen.y, 0.)) - &self.position).normalize();
+        let direction = self.screen_to_world(&glm::vec3(screen.x, screen.y, 1.))
+            - self.screen_to_world(&glm::vec3(screen.x, screen.y, 0.));
 
         // create plane
-        let nd = glm::dot(&cursor_from_camera_dir, &plane_normal);
+        let nd = glm::dot(&direction, &plane_normal);
         let pn = glm::dot(&self.position, &plane_normal);
-        let t = pn / nd; // distance
+        let t = (plane_origin_offset.magnitude() - pn) / nd; // distance
 
         // get point
-        &self.position - cursor_from_camera_dir * t
+        plane_origin_offset + direction * t
     }
 }
