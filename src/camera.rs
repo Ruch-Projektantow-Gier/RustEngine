@@ -1,4 +1,6 @@
 use crate::cube::{Line2D, Ray};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Copy, Clone)]
 pub enum CameraMovement {
@@ -25,6 +27,13 @@ pub struct Camera {
     pub move_x: CameraMovement,
     pub move_z: CameraMovement,
     pub move_y: CameraMovement,
+
+    // rotating
+    last_cursor: glm::TVec2<i32>,
+    is_looking_around: bool,
+    cam_sensitive: f32,
+    yaw: f32,   // y
+    pitch: f32, // x
 }
 
 impl Default for Camera {
@@ -56,6 +65,11 @@ impl Default for Camera {
             move_x: CameraMovement::NONE,
             move_z: CameraMovement::NONE,
             move_y: CameraMovement::NONE,
+            last_cursor: glm::vec2(0, 0),
+            is_looking_around: false,
+            cam_sensitive: 0.1,
+            yaw: 0.0,
+            pitch: 0.0,
         }
     }
 }
@@ -92,6 +106,39 @@ impl Camera {
             &(&self.position + &self.direction),
             &camera_up,
         );
+    }
+
+    pub fn click(&mut self, x: i32, y: i32) {
+        self.last_cursor = glm::vec2(x, y);
+        self.is_looking_around = true;
+    }
+
+    pub fn unclick(&mut self) {
+        self.is_looking_around = false;
+    }
+
+    pub fn handle_mouse(&mut self, x: i32, y: i32) {
+        if self.is_looking_around {
+            let x_offset = x - self.last_cursor.x;
+            let y_offset = self.last_cursor.y - y;
+
+            self.last_cursor = glm::vec2(x, y);
+
+            self.yaw += self.cam_sensitive * x_offset as f32;
+            self.pitch += self.cam_sensitive * y_offset as f32;
+
+            if self.pitch.abs() > 89.0 {
+                self.pitch = self.pitch.signum() * 89.0;
+            }
+
+            let direction = glm::vec3(
+                self.yaw.to_radians().cos() * self.pitch.to_radians().cos(),
+                self.pitch.to_radians().sin(),
+                self.yaw.to_radians().sin() * self.pitch.to_radians().cos(),
+            );
+
+            self.set_direction(direction.normalize());
+        }
     }
 
     pub fn set_direction(&mut self, direction: glm::Vec3) {
