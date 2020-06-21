@@ -11,10 +11,12 @@ uniform mat4 projection;
 out VS_OUTPUT {
     vec3 Color;
     vec2 TexCoords;
+    vec3 Normal;
 } OUT;
 
 void main()
 {
     gl_Position = projection * view * model * vec4(Position, 1.0);
     OUT.TexCoords = TexCoords;
+    OUT.Normal = Normal;
 }

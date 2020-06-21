@@ -177,7 +177,7 @@ impl Gizmo {
         match &self.target {
             Some(target) => {
                 let target = target.borrow();
-                drawer.draw_gizmo(&target.position, 1., 1.);
+                drawer.draw_gizmo(&target.position, 0.5, 1.);
 
                 // /////////////
                 // let cached = self.cached_target.as_ref().unwrap();

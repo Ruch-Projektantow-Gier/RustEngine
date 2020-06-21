@@ -17,7 +17,7 @@ use crate::texture::{Texture, TextureKind};
 use crate::utilities::{is_point_on_line2D, is_rays_intersect};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 mod camera;
 mod components;
@@ -187,8 +187,8 @@ fn main() {
 
     // Cubes
     let target_cube = TransformComponent::new(
-        glm::vec3(0., 0.5, 0.),
-        glm::quat_identity(),
+        glm::vec3(1., 0.5, 0.),
+        glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
         glm::vec3(1., 1., 1.),
     );
 
@@ -206,8 +206,15 @@ fn main() {
 
     // Time
     let s_per_update = 1.0 / 30.0;
-    let mut previous = SystemTime::now();
+    let mut previous = Instant::now();
     let mut lag = 0.0;
+
+    // Frames counter
+    let mut previous_frame_time = Instant::now();
+    let mut frames = 0;
+    let mut updates = 0;
+    let mut frames_counter = 0;
+    let mut updates_counter = 0;
 
     // Events
     let mut event_pump = sdl.event_pump().unwrap();
@@ -215,10 +222,22 @@ fn main() {
     /////////////////////////////////////
 
     'main: loop {
-        let current = SystemTime::now();
-        let elapsed = current.duration_since(previous).unwrap();
+        let current = Instant::now();
+        let elapsed = current.duration_since(previous);
         previous = current;
         lag += elapsed.as_secs_f32();
+
+        // frames counter
+        frames += 1;
+        if current.duration_since(previous_frame_time).as_secs() >= 1 {
+            frames_counter = frames;
+            updates_counter = updates;
+            frames = 0;
+            updates = 0;
+            previous_frame_time = current;
+        }
+
+        println!("{}", current.duration_since(previous_frame_time).as_secs());
 
         for event in event_pump.poll_iter() {
             match event {
@@ -374,6 +393,7 @@ fn main() {
 
             camera.update();
 
+            updates += 1;
             // update
             lag -= s_per_update;
         }
@@ -409,6 +429,27 @@ fn main() {
             basic_shader.setMat4(&cube.borrow().mat4(), "model");
             render_cube.draw(&basic_shader);
         }
+
+        let floor = TransformComponent::new(
+            glm::vec3(0., 0., 0.),
+            glm::quat_identity(),
+            glm::vec3(5.0, 0.1, 5.0),
+        );
+        basic_shader.setMat4(&floor.mat4(), "model");
+        render_cube.draw(&screen_shader);
+
+        // sphere
+        unsafe {
+            gl.FrontFace(gl::CCW);
+        }
+
+        let sphere = TransformComponent::new(
+            glm::vec3(-1., 0.5, 0.),
+            glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
+            glm::vec3(0.5, 0.5, 0.5),
+        );
+        basic_shader.setMat4(&sphere.mat4(), "model");
+        render_sphere.draw(&screen_shader);
 
         // let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
         // sphere_model *= glm::scaling(&glm::vec3(1., 1., 1.));
@@ -477,7 +518,7 @@ fn main() {
 
         bold_font.render_with_shadow(
             &camera,
-            "MaciekEngine",
+            "RUST ENGINE",
             |width| (camera.screen_width as f32 - width - 30., 50.),
             0.7,
             &glm::vec3(1., 1., 1.),
@@ -485,8 +526,16 @@ fn main() {
 
         normal_font.render_with_shadow(
             &camera,
-            "alpha version | blogokodzie.pl",
+            "BLOGOKODZIE.PL",
             |width| (camera.screen_width as f32 - width - 30., 30.),
+            0.5,
+            &glm::vec3(1., 1., 1.),
+        );
+
+        normal_font.render_with_shadow(
+            &camera,
+            format!("{} FPS | {} UPDATES", frames_counter, updates_counter).as_ref(),
+            |_| (90., 30.),
             0.5,
             &glm::vec3(1., 1., 1.),
         );
