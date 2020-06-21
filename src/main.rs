@@ -22,7 +22,7 @@ mod debug;
 mod double_buffer;
 mod gizmo;
 mod primitives;
-mod render_gl;
+mod shader;
 mod sphere;
 mod texture;
 mod utilities;
@@ -81,21 +81,21 @@ fn main() {
 
     /////////////////////////////////////
 
-    let basic_shader = render_gl::Program::from_files(
+    let basic_shader = shader::Program::from_files(
         &gl,
         include_str!("shaders/basic/basic.vert"),
         include_str!("shaders/basic/basic.frag"),
     )
     .unwrap();
 
-    let screen_shader = render_gl::Program::from_files(
+    let screen_shader = shader::Program::from_files(
         &gl,
         include_str!("shaders/screen/screen.vert"),
         include_str!("shaders/screen/screen.frag"),
     )
     .unwrap();
 
-    let color_shader = render_gl::Program::from_files(
+    let color_shader = shader::Program::from_files(
         &gl,
         include_str!("shaders/color/color.vert"),
         include_str!("shaders/color/color.frag"),
@@ -379,7 +379,9 @@ fn main() {
         // 1. Drawing on added offscreen framebuffer (with depth and stencil)
         unsafe {
             gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
-            gl.ClearColor(0.1, 0.1, 0.1, 1.0);
+            // gl.ClearColor(0.1, 0.1, 0.1, 1.0);
+            let bg = utilities::color_from_rgba(172, 196, 191, 1.);
+            gl.ClearColor(bg.x, bg.y, bg.z, bg.w);
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl.Enable(gl::DEPTH_TEST);
 
@@ -398,8 +400,6 @@ fn main() {
             basic_shader.setMat4(&cube.borrow().mat4(), "model");
             render_cube.draw(&basic_shader);
         }
-
-        gizmo.draw(&drawer, &camera);
 
         // let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
         // sphere_model *= glm::scaling(&glm::vec3(1., 1., 1.));
@@ -431,36 +431,21 @@ fn main() {
         color_shader.setMat4(&camera.view, "view");
         color_shader.setMat4(&grid_model, "model");
         color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.1), "color");
-        render_grid.draw_lines(1.);
-
-        // drawer.draw_plane(
-        //     &glm::vec3(0., 3., 0.),
-        //     &glm::vec3(0., 0.0, 1.).normalize(),
-        //     5.,
-        // );
+        render_grid.draw_lines(2.);
 
         drawer.draw_color(
-            &glm::vec3(0., 0., -5.),
-            &glm::vec3(0., 0., 5.),
-            &glm::vec4(0.2, 0.2, 0.2, 1.0),
-            1.,
+            &glm::vec3(0., 0.01, -5.),
+            &glm::vec3(0., 0.01, 5.),
+            &glm::vec4(1.0, 1.0, 1.0, 0.2),
+            0.5,
         );
 
         drawer.draw_color(
-            &glm::vec3(-5., 0., 0.),
-            &glm::vec3(5., 0., 0.),
-            &glm::vec4(0.2, 0.2, 0.2, 1.0),
-            1.,
+            &glm::vec3(-5., 0.01, 0.),
+            &glm::vec3(5., 0.01, 0.),
+            &glm::vec4(1.0, 1.0, 1.0, 0.2),
+            0.5,
         );
-
-        // gui
-        let test = glm::unproject(
-            &glm::vec3(0.05, 0.05, 0.5),
-            &camera.view,
-            &camera.projection,
-            glm::vec4(0., 0., 1., 1.),
-        );
-        drawer.draw_gizmo(&test, 0.01, 0.5);
 
         // 2. Clear main framebuffer
         unsafe {
@@ -475,7 +460,21 @@ fn main() {
         }
 
         screen_shader.bind();
+        screen_shader.setVec3Float(
+            &glm::vec3(camera.screen_width as f32, camera.screen_height as f32, 0.),
+            "resolution",
+        );
         render_quad.draw(&screen_shader);
+
+        // gui
+        let test = glm::unproject(
+            &glm::vec3(0.05, 0.05, 0.5),
+            &camera.view,
+            &camera.projection,
+            glm::vec4(0., 0., 1., 1.),
+        );
+        drawer.draw_gizmo(&test, 0.01, 0.5);
+        gizmo.draw(&drawer, &camera);
 
         // ************************* RENDERING **********************8**
 

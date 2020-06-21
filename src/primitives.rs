@@ -1,12 +1,12 @@
 extern crate nalgebra_glm as glm;
-use crate::render_gl::{Program, Shader};
+use crate::shader::{Program, Shader};
 use crate::texture;
 use crate::texture::{Texture, TextureKind};
 use gl;
 use std::ffi::*;
 
-#[path = "render_gl.rs"]
-mod render_gl;
+#[path = "shader.rs"]
+mod shader;
 #[path = "sphere.rs"]
 mod sphere;
 

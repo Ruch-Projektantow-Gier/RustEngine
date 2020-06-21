@@ -2,7 +2,7 @@ extern crate nalgebra_glm as glm;
 use crate::cube::Ray;
 use crate::primitives;
 use crate::primitives::Model;
-use crate::render_gl::{Program, Shader};
+use crate::shader::{Program, Shader};
 use gl;
 use std::ffi::*;
 

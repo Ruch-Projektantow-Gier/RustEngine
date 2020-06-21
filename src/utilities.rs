@@ -1,5 +1,9 @@
 use crate::cube::{Line2D, Ray};
 
+pub fn color_from_rgba(r: u32, g: u32, b: u32, a: f32) -> glm::Vec4 {
+    glm::vec4(r as f32 / 255., g as f32 / 255., b as f32 / 255., a)
+}
+
 // http://geomalgorithms.com/a07-_distance.html
 pub fn ray_ray_distance(r1: &Ray, r2: &Ray) -> f32 {
     let u = &r1.dir - &r1.origin;

@@ -42,8 +42,8 @@ impl Default for Camera {
 
         let position = glm::vec3(0., 4., 6.);
         let direction_to_camera = glm::vec3(0., -4., -6.).normalize(); // from 0,0,0 to camera
-        let screen_width = 900;
-        let screen_height = 700;
+        let screen_width = 1024;
+        let screen_height = 600;
         let near_plane = 0.1;
         let far_plane = 300.0;
 
@@ -53,7 +53,7 @@ impl Default for Camera {
             near_plane,
             far_plane,
             projection: glm::perspective(
-                (screen_width / screen_height) as f32,
+                screen_width as f32 / screen_height as f32,
                 45.0,
                 near_plane,
                 far_plane,
