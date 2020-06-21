@@ -193,6 +193,7 @@ fn main() {
 
     /////////////////////////////////////
     let mut rays = vec![];
+    let mut lines = vec![];
 
     // Time
     let s_per_update = 1.0 / 30.0;
@@ -213,6 +214,13 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::Z),
+                    ..
+                } => {
+                    camera.set_direction(glm::vec3(0., 0., -1.));
+                    camera.set_position(glm::vec3(camera.position.x, 0., camera.position.z));
+                }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::Q),
                     ..
@@ -338,7 +346,9 @@ fn main() {
                     mouse_btn: sdl2::mouse::MouseButton::Left,
                     ..
                 } => {
-                    gizmo.unclick();
+                    gizmo.unclick(&camera, |a1, a2| {
+                        // lines.push((a1, a2));
+                    });
                 }
                 sdl2::event::Event::MouseMotion { x, y, .. } => {
                     camera.handle_mouse(x, y);
@@ -389,7 +399,7 @@ fn main() {
             render_cube.draw(&basic_shader);
         }
 
-        gizmo.draw(&drawer);
+        gizmo.draw(&drawer, &camera);
 
         // let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
         // sphere_model *= glm::scaling(&glm::vec3(1., 1., 1.));
@@ -408,6 +418,10 @@ fn main() {
             drawer.draw_ray(ray, 50.);
         }
 
+        for &(a1, a2) in &lines {
+            drawer.draw(&a1, &a2);
+        }
+
         // Grid
         let mut grid_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
         grid_model *= glm::scaling(&glm::vec3(5., 5., 5.));
@@ -418,6 +432,12 @@ fn main() {
         color_shader.setMat4(&grid_model, "model");
         color_shader.setVec4Float(&glm::vec4(1., 1., 1., 0.1), "color");
         render_grid.draw_lines(1.);
+
+        // drawer.draw_plane(
+        //     &glm::vec3(0., 3., 0.),
+        //     &glm::vec3(0., 0.0, 1.).normalize(),
+        //     5.,
+        // );
 
         drawer.draw_color(
             &glm::vec3(0., 0., -5.),

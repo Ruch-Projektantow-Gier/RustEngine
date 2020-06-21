@@ -19,8 +19,8 @@ pub struct Camera {
     pub projection: glm::Mat4,
     pub view: glm::Mat4,
 
-    position: glm::Vec3,
-    pub direction: glm::Vec3, // normalized
+    pub position: glm::Vec3,
+    pub direction_to_camera: glm::Vec3, // normalized
 
     // movement
     speed: f32,
@@ -41,7 +41,7 @@ impl Default for Camera {
         let camera_up: glm::Vec3 = glm::vec3(0., 1., 0.);
 
         let position = glm::vec3(0., 4., 6.);
-        let direction = glm::vec3(0., -4., -6.).normalize();
+        let direction_to_camera = glm::vec3(0., -4., -6.).normalize(); // from 0,0,0 to camera
         let screen_width = 900;
         let screen_height = 700;
         let near_plane = 0.1;
@@ -58,9 +58,9 @@ impl Default for Camera {
                 near_plane,
                 far_plane,
             ),
-            view: glm::look_at(&position, &(&position + &direction), &camera_up),
+            view: glm::look_at(&position, &(&position + &direction_to_camera), &camera_up),
             position,
-            direction,
+            direction_to_camera,
             speed: 0.1,
             move_x: CameraMovement::NONE,
             move_z: CameraMovement::NONE,
@@ -96,14 +96,15 @@ impl Camera {
         let move_z = dir_val(self.move_z);
         let move_y = dir_val(self.move_y);
 
-        self.position +=
-            glm::normalize(&glm::cross(&self.direction, &camera_up)) * self.speed * move_x;
-        self.position += &self.direction * self.speed * move_z;
+        self.position += glm::normalize(&glm::cross(&self.direction_to_camera, &camera_up))
+            * self.speed
+            * move_x;
+        self.position += &self.direction_to_camera * self.speed * move_z;
         self.position += camera_up * self.speed * move_y;
 
         self.view = glm::look_at(
             &self.position,
-            &(&self.position + &self.direction),
+            &(&self.position + &self.direction_to_camera),
             &camera_up,
         );
     }
@@ -137,12 +138,16 @@ impl Camera {
                 self.yaw.to_radians().sin() * self.pitch.to_radians().cos(),
             );
 
-            self.set_direction(direction.normalize());
+            self.direction_to_camera = direction.normalize();
         }
     }
 
     pub fn set_direction(&mut self, direction: glm::Vec3) {
-        self.direction = direction;
+        self.direction_to_camera = direction;
+    }
+
+    pub fn set_position(&mut self, position: glm::Vec3) {
+        self.position = position;
     }
 
     pub fn set_move_x(&mut self, movement: CameraMovement) {
@@ -220,17 +225,19 @@ impl Camera {
         plane_origin_offset: &glm::Vec3,
     ) -> glm::Vec3 {
         let screen = self.cursor_to_screen(cursor);
-
-        // direction from camera
+        //
+        // // direction from camera
         let direction = self.screen_to_world(&glm::vec3(screen.x, screen.y, 1.))
             - self.screen_to_world(&glm::vec3(screen.x, screen.y, 0.));
 
         // create plane
         let nd = glm::dot(&direction, &plane_normal);
         let pn = glm::dot(&self.position, &plane_normal);
-        let t = (plane_origin_offset.magnitude() - pn) / nd; // distance
+        // let t = (plane_origin_offset.magnitude() - pn) / nd; // distance
+        let t = (pn) / nd; // distance
 
         // get point
-        plane_origin_offset + direction * t
+        // &self.position + direction * t
+        &self.position - direction * t
     }
 }

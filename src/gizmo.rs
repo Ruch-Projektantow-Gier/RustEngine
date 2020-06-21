@@ -48,18 +48,26 @@ impl Gizmo {
 
     #[inline]
     fn translate_mode(mode: GizmoTranslateMode, camera: &Camera) -> GizmoTranslate {
+        let x = glm::vec3(1., 0., 0.);
+        let y = glm::vec3(0., 1., 0.);
+        let z = glm::vec3(0., 0., 1.);
+
+        let x_sim = glm::dot(&camera.position, &x).abs();
+        let y_sim = glm::dot(&camera.position, &y).abs();
+        let z_sim = glm::dot(&camera.position, &z).abs();
+
         match mode {
             GizmoTranslateMode::X => GizmoTranslate {
                 axis: glm::vec3(1., 0., 0.),
-                normal: glm::vec3(0., 1., 0.),
+                normal: if y_sim > z_sim { y } else { z },
             },
             GizmoTranslateMode::Y => GizmoTranslate {
                 axis: glm::vec3(0., 1., 0.),
-                normal: camera.direction.clone(),
+                normal: if x_sim > z_sim { x } else { z },
             },
             GizmoTranslateMode::Z => GizmoTranslate {
                 axis: glm::vec3(0., 0., 1.),
-                normal: glm::vec3(0., 1., 0.),
+                normal: if y_sim > x_sim { y } else { x },
             },
         }
     }
@@ -103,19 +111,33 @@ impl Gizmo {
                     self.mouse_start = cursor.clone();
                     self.mouse_end = cursor.clone();
                     self.is_dragging = true;
+
+                    self.cached_target = Some(target.clone());
                 }
             }
             _ => {}
         }
     }
 
-    pub fn unclick(&mut self) {
+    pub fn unclick<F>(&mut self, camera: &Camera, f: F)
+    where
+        F: FnOnce(glm::Vec3, glm::Vec3),
+    {
         self.is_dragging = false;
 
-        match &mut self.target {
+        match &self.target {
             Some(target) => {
-                let clone = target.borrow().clone();
-                self.cached_target = Some(clone);
+                let target = target.borrow();
+                let cached = self.cached_target.as_ref().unwrap();
+                let mode = Self::translate_mode(self.translate_mode, &camera);
+
+                let plane_origin = &cached.position;
+                let normal = mode.normal;
+
+                let p1 = camera.cast_cursor_on_plane(&self.mouse_start, &normal, &plane_origin);
+                let p2 = camera.cast_cursor_on_plane(&self.mouse_end, &normal, &plane_origin);
+
+                f(p1, p2);
             }
             _ => {}
         }
@@ -134,11 +156,11 @@ impl Gizmo {
                 let cached = self.cached_target.as_ref().unwrap();
                 let mode = Self::translate_mode(self.translate_mode, &camera);
 
-                let plane_origin = &mode.normal * glm::dot(&cached.position, &mode.normal);
+                let plane_origin = &cached.position;
+                let normal = mode.normal;
 
-                let p1 =
-                    camera.cast_cursor_on_plane(&self.mouse_start, &mode.normal, &plane_origin);
-                let p2 = camera.cast_cursor_on_plane(&self.mouse_end, &mode.normal, &plane_origin);
+                let p1 = camera.cast_cursor_on_plane(&self.mouse_start, &normal, &plane_origin);
+                let p2 = camera.cast_cursor_on_plane(&self.mouse_end, &normal, &plane_origin);
 
                 let diff = p2 - p1;
 
@@ -151,11 +173,24 @@ impl Gizmo {
         }
     }
 
-    pub fn draw(&self, drawer: &DebugDrawer) {
+    pub fn draw(&self, drawer: &DebugDrawer, camera: &Camera) {
         match &self.target {
             Some(target) => {
                 let target = target.borrow();
                 drawer.draw_gizmo(&target.position, 1., 1.);
+
+                // /////////////
+                // let cached = self.cached_target.as_ref().unwrap();
+                // let mode = Self::translate_mode(self.translate_mode, &camera);
+                // //
+                // let plane_origin = &cached.position;
+                // let normal = mode.normal;
+
+                // let p1 = camera.cast_cursor_on_plane(&self.mouse_start, &normal, &plane_origin);
+                // let p2 = camera.cast_cursor_on_plane(&self.mouse_end, &normal, &plane_origin);
+                //
+                // // drawer.draw(&p1, &p2);
+                // drawer.draw_plane(&plane_origin, &normal, 5.);
             }
             _ => {}
         }

@@ -21,6 +21,7 @@ pub struct Debug<'a> {
     line_vbo: GlInt,
 
     pyramid: Model<'a>,
+    grid: Model<'a>,
 }
 
 pub struct DebugDrawer<'a> {
@@ -155,7 +156,52 @@ impl<'a> DebugDrawer<'a> {
     }
 
     pub fn draw(&self, from: &glm::Vec3, to: &glm::Vec3) {
+        unsafe { self.debug.gl.Enable(gl::DEPTH_TEST) }
         self.draw_color(from, to, &glm::vec4(1., 1., 1., 1.), 1.);
+    }
+
+    pub fn draw_plane(&self, offset: &glm::Vec3, normal: &glm::Vec3, scale: f32) {
+        let mut model: glm::Mat4;
+
+        {
+            let mut new_y = normal.clone_owned();
+            let mut new_z = glm::cross(&new_y, &glm::vec3(1., 0., 0.));
+
+            if new_z.magnitude() < glm::epsilon() {
+                new_z = glm::vec3(0., 0., 1.);
+            }
+
+            if new_y.magnitude() < glm::epsilon() {
+                new_y = glm::vec3(0., 1., 0.);
+            }
+
+            let new_x = glm::cross(&new_z, &new_y).normalize();
+            {
+                let x = new_x;
+                let y = new_y;
+                let z = new_z;
+
+                model = glm::mat4(
+                    x[0], y[0], z[0], offset.x, //
+                    x[1], y[1], z[1], offset.y, //
+                    x[2], y[2], z[2], offset.z, //
+                    0., 0., 0., 1., //
+                );
+            }
+        }
+        model *= glm::scaling(&glm::vec3(scale, scale, scale));
+
+        self.debug.shader.bind();
+        self.debug
+            .shader
+            .setVec4Float(&glm::vec4(1., 1., 1., 0.1), "color");
+        self.debug.shader.setMat4(&self.view, "view");
+        self.debug.shader.setMat4(&self.proj, "projection");
+        self.debug.shader.setMat4(&model, "model");
+
+        self.debug.grid.draw_lines(1.);
+
+        self.draw(&offset, &(offset + normal));
     }
 
     pub fn draw_ray(&self, ray: &Ray, distance: f32) {
@@ -196,6 +242,7 @@ impl<'a> Debug<'a> {
         let (line_vao, line_vbo) = Debug::gen_line(&gl);
         let shader = Debug::gen_line_shader(&gl);
         let pyramid = primitives::build_pyramid(&gl);
+        let grid = primitives::build_grid(&gl, 10);
 
         Debug {
             gl: gl.clone(),
@@ -203,6 +250,7 @@ impl<'a> Debug<'a> {
             line_vbo,
             shader,
             pyramid,
+            grid,
         }
     }
 
