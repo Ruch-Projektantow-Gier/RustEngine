@@ -116,6 +116,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "freetype-rs"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "freetype-sys 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.70 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "freetype-sys"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cmake 0.1.44 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.70 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "gcc"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -412,6 +432,7 @@ name = "rust_voxel_engine"
 version = "0.1.0"
 dependencies = [
  "assimp 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "freetype-rs 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gl 0.1.0",
  "itertools 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra-glm 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -575,6 +596,8 @@ dependencies = [
 "checksum encoding_rs 0.8.23 (registry+https://github.com/rust-lang/crates.io-index)" = "e8ac63f94732332f44fe654443c46f6375d1939684c17b0afb6cb56b0456e171"
 "checksum filetime 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "affc17579b132fc2461adf7c575cc6e8b134ebca52c51f5411388965227dc695"
 "checksum flate2 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)" = "2cfff41391129e0a856d6d822600b8d71179d46879e310417eb9c762eb178b42"
+"checksum freetype-rs 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)" = "74eadec9d0a5c28c54bb9882e54787275152a4e36ce206b45d7451384e5bf5fb"
+"checksum freetype-sys 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8083a09e08d627bfce879fa0a44a3aa18c0bbbdaa163c8793cfc328afca5c5f4"
 "checksum gcc 0.3.55 (registry+https://github.com/rust-lang/crates.io-index)" = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 "checksum generic-array 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0ed1e761351b56f54eb9dcd0cfaca9fd0daecf93918e1cfc01c8a3d26ee7adcd"
 "checksum getrandom 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "7abc8dd8451921606d809ba32e95b6111925cd2906060d2dcc29c070220503eb"

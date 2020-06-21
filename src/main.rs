@@ -1,3 +1,6 @@
+mod text;
+
+extern crate freetype;
 extern crate nalgebra_glm as glm;
 extern crate sdl2;
 extern crate stb_image;
@@ -9,6 +12,7 @@ use crate::components::TransformComponent;
 use crate::cube::{Line2D, Ray};
 use crate::double_buffer::{DoubleBuffered, SceneBuffer};
 use crate::gizmo::Gizmo;
+use crate::text::Font;
 use crate::texture::{Texture, TextureKind};
 use crate::utilities::{is_point_on_line2D, is_rays_intersect};
 use std::cell::RefCell;
@@ -101,6 +105,11 @@ fn main() {
         include_str!("shaders/color/color.frag"),
     )
     .unwrap();
+
+    /////////////////////////////////////
+    let font = Font::new(&gl);
+    let normal_font = font.load("res/fonts/Corbert-Regular.otf", 28);
+    let bold_font = font.load("res/fonts/chinese_rocks.ttf", 28);
 
     /////////////////////////////////////
 
@@ -465,6 +474,22 @@ fn main() {
             "resolution",
         );
         render_quad.draw(&screen_shader);
+
+        bold_font.render_with_shadow(
+            &camera,
+            "MaciekEngine",
+            |width| (camera.screen_width as f32 - width - 30., 50.),
+            0.7,
+            &glm::vec3(1., 1., 1.),
+        );
+
+        normal_font.render_with_shadow(
+            &camera,
+            "alpha version | blogokodzie.pl",
+            |width| (camera.screen_width as f32 - width - 30., 30.),
+            0.5,
+            &glm::vec3(1., 1., 1.),
+        );
 
         // gui
         let test = glm::unproject(
