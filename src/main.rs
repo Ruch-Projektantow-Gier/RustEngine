@@ -198,6 +198,7 @@ fn main() {
         glm::vec3(0.1, 0.1, 0.1),
     );
     let light_cube_ptr = Rc::new(RefCell::new(light_cube));
+    let mut light_color = [1., 1., 1.];
 
     // let cube_ptr = Rc::new(RefCell::new(target_cube));
     let cube_ptr = Rc::new(RefCell::new(target_cube));
@@ -245,8 +246,6 @@ fn main() {
             previous_frame_time = current;
         }
 
-        println!("{}", current.duration_since(previous_frame_time).as_secs());
-
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -258,11 +257,28 @@ fn main() {
                     camera.set_position(glm::vec3(camera.position.x, 0., camera.position.z));
                 }
                 sdl2::event::Event::KeyDown {
-                    keycode: Some(sdl2::keyboard::Keycode::Q),
+                    keycode: Some(sdl2::keyboard::Keycode::R),
                     ..
                 } => {
-                    // let ray = (camera_pos.clone(), &camera_pos - dir * t);
-                    // rays.push(ray);
+                    light_color[0] -= 0.1;
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::G),
+                    ..
+                } => {
+                    light_color[1] -= 0.1;
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::B),
+                    ..
+                } => {
+                    light_color[2] -= 0.1;
+                }
+                sdl2::event::Event::KeyDown {
+                    keycode: Some(sdl2::keyboard::Keycode::T),
+                    ..
+                } => {
+                    light_color = [1., 1., 1.];
                 }
                 sdl2::event::Event::KeyDown {
                     keycode: Some(sdl2::keyboard::Keycode::D),
@@ -427,9 +443,11 @@ fn main() {
         }
 
         // render light
-
         color_shader.bind();
-        color_shader.setVec4Float(&glm::vec4(1., 1., 1., 1.), "color");
+        color_shader.setVec4Float(
+            &glm::vec4(light_color[0], light_color[1], light_color[2], 1.),
+            "color",
+        );
         color_shader.setMat4(&light_cube_ptr.borrow().mat4(), "model");
         render_sphere.draw(&screen_shader);
 
@@ -438,7 +456,11 @@ fn main() {
         basic_shader.setMat4(&camera.projection, "projection");
         basic_shader.setMat4(&camera.view, "view");
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "lightPos");
-        basic_shader.setVec3Float(&glm::vec3(1., 1., 1.), "lightColor");
+        basic_shader.setVec3Float(
+            &glm::vec3(light_color[0], light_color[1], light_color[2]),
+            "lightColor",
+        );
+        basic_shader.setVec3Float(&camera.position, "viewPos");
 
         let drawer = debug.setup_drawer(&camera.view, &camera.projection);
 
