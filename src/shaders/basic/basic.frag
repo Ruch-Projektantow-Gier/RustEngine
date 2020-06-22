@@ -1,18 +1,29 @@
 #version 330 core
 
 uniform sampler2D texture_diffuse1;
-uniform vec3 light_pos;
+uniform vec3 lightPos;
+uniform vec3 lightColor;
 
 in VS_OUTPUT {
-    vec3 Color;
     vec2 TexCoords;
     vec3 Normal;
+    vec3 FragPos;
 } IN;
 
-out vec4 Color;
+out vec4 FragColor;
 
 void main()
 {
-    Color = vec4(mix(texture(texture_diffuse1, IN.TexCoords).rgb, IN.Color, 0.5), 1.0);
-//    Color = vec4(IN.Color, 1.0);
+    // ambient
+    float ambientStrength = 0.1;
+    vec3 ambient = ambientStrength * lightColor;
+
+    // diffuse
+    vec3 norm = normalize(IN.Normal);
+    vec3 lightDir = normalize(lightPos - IN.FragPos);
+    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 diffuse = diff * lightColor;
+
+    vec3 result = (ambient + diffuse) * texture(texture_diffuse1, IN.TexCoords).rgb;
+    FragColor = vec4(result, texture(texture_diffuse1, IN.TexCoords).a);
 }

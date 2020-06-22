@@ -192,13 +192,21 @@ fn main() {
         glm::vec3(1., 1., 1.),
     );
 
+    let light_cube = TransformComponent::new(
+        glm::vec3(0., 2.0, 0.),
+        glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
+        glm::vec3(0.1, 0.1, 0.1),
+    );
+    let light_cube_ptr = Rc::new(RefCell::new(light_cube));
+
     // let cube_ptr = Rc::new(RefCell::new(target_cube));
     let cube_ptr = Rc::new(RefCell::new(target_cube));
 
     let mut scene_buffer = SceneBuffer::new();
     let mut cubes = vec![];
     cubes.push(cube_ptr.clone());
-    gizmo.target(cube_ptr.clone());
+    // gizmo.target(cube_ptr.clone());
+    gizmo.target(light_cube_ptr.clone());
 
     /////////////////////////////////////
     let mut rays = vec![];
@@ -418,10 +426,19 @@ fn main() {
             gl.FrontFace(gl::CW);
         }
 
+        // render light
+
+        color_shader.bind();
+        color_shader.setVec4Float(&glm::vec4(1., 1., 1., 1.), "color");
+        color_shader.setMat4(&light_cube_ptr.borrow().mat4(), "model");
+        render_sphere.draw(&screen_shader);
+
         // Render to offscreen buffer
         basic_shader.bind();
         basic_shader.setMat4(&camera.projection, "projection");
         basic_shader.setMat4(&camera.view, "view");
+        basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "lightPos");
+        basic_shader.setVec3Float(&glm::vec3(1., 1., 1.), "lightColor");
 
         let drawer = debug.setup_drawer(&camera.view, &camera.projection);
 

@@ -9,14 +9,15 @@ uniform mat4 view;
 uniform mat4 projection;
 
 out VS_OUTPUT {
-    vec3 Color;
     vec2 TexCoords;
     vec3 Normal;
+    vec3 FragPos;
 } OUT;
 
 void main()
 {
     gl_Position = projection * view * model * vec4(Position, 1.0);
     OUT.TexCoords = TexCoords;
-    OUT.Normal = Normal;
+    OUT.Normal = mat3(transpose(inverse(model))) * Normal;
+    OUT.FragPos = vec3(model * vec4(Position, 1.0));;
 }
