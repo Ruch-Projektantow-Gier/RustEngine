@@ -573,9 +573,20 @@ fn main() {
 
         normal_font.render_with_shadow(
             &camera,
+            format!(
+                "X: {:.2} Y: {:.2} Z: {:.2}",
+                &camera.position.x, &camera.position.y, &camera.position.z
+            )
+            .as_ref(),
+            |_| (90., 40.),
+            0.45,
+            &glm::vec3(1., 1., 1.),
+        );
+        normal_font.render_with_shadow(
+            &camera,
             format!("{} FPS | {} UPDATES", frames_counter, updates_counter).as_ref(),
-            |_| (90., 30.),
-            0.5,
+            |_| (90., 20.),
+            0.45,
             &glm::vec3(1., 1., 1.),
         );
 
