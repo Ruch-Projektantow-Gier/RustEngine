@@ -455,12 +455,25 @@ fn main() {
         basic_shader.bind();
         basic_shader.setMat4(&camera.projection, "projection");
         basic_shader.setMat4(&camera.view, "view");
-        basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "lightPos");
+        basic_shader.setVec3Float(&camera.position, "viewPos");
+
+        // material
+        basic_shader.setVec3Float(&glm::vec3(1.0, 0.5, 0.31), "material.ambient");
+        basic_shader.setVec3Float(&glm::vec3(1.0, 0.5, 0.31), "material.diffuse");
+        basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "material.specular");
+        basic_shader.setFloat(32.0, "material.shininess");
+
+        // light
+        basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");
         basic_shader.setVec3Float(
             &glm::vec3(light_color[0], light_color[1], light_color[2]),
-            "lightColor",
+            "light.ambient",
         );
-        basic_shader.setVec3Float(&camera.position, "viewPos");
+        basic_shader.setVec3Float(
+            &glm::vec3(light_color[0], light_color[1], light_color[2]),
+            "light.diffuse",
+        );
+        basic_shader.setVec3Float(&glm::vec3(1.0, 1.0, 1.0), "light.specular");
 
         let drawer = debug.setup_drawer(&camera.view, &camera.projection);
 
