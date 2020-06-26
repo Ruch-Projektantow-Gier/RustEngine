@@ -3,6 +3,7 @@ use crate::shader::{Program, Shader};
 use crate::texture;
 use crate::texture::{Texture, TextureKind};
 use gl;
+use itertools::{zip_eq, Itertools};
 use std::ffi::*;
 
 #[path = "shader.rs"]
@@ -325,7 +326,7 @@ impl Model<'_> {
                     TextureKind::Height => height_number += 1,
                 }
 
-                shader.setInt(i as i32, &format!("{}{}", kind.as_str(), i));
+                shader.setInt(i as i32, &format!("material.{}{}", kind.as_str(), i));
                 texture.bind();
             }
         }
@@ -383,15 +384,93 @@ pub fn compute_tangent(
     (tangents, bitangents)
 }
 
+pub fn compute_tangent_without_indicies(
+    vertices: &Vec<glm::Vec3>,
+    uvs: &Vec<glm::Vec2>,
+) -> (Vec<glm::Vec3>, Vec<glm::Vec3>) {
+    let mut tangents = vec![];
+    let mut bitangents = vec![];
+
+    for (v, uv) in zip_eq(vertices.chunks(3), uvs.chunks(3)) {
+        let v0 = &v[0];
+        let v1 = &v[1];
+        let v2 = &v[2];
+
+        let uv0 = &uv[0];
+        let uv1 = &uv[1];
+        let uv2 = &uv[2];
+
+        let delta_pos_1 = v1 - v0; // edge
+        let delta_pos_2 = v2 - v0;
+        let delta_uv_1 = uv1 - uv0; //
+        let delta_uv_2 = uv2 - uv0;
+
+        let r = 1.0 / (delta_uv_1.x * delta_uv_2.y - delta_uv_2.x * delta_uv_1.y);
+
+        let tangent = glm::vec3(
+            delta_uv_2.y * delta_pos_1.x - delta_uv_1.y * delta_pos_2.x,
+            delta_uv_2.y * delta_pos_1.y - delta_uv_1.y * delta_pos_2.y,
+            delta_uv_2.y * delta_pos_1.z - delta_uv_1.y * delta_pos_2.z,
+        ) * r;
+
+        let bitangent = glm::vec3(
+            -delta_uv_2.x * delta_pos_1.x - delta_uv_1.x * delta_pos_2.x,
+            -delta_uv_2.x * delta_pos_1.y - delta_uv_1.x * delta_pos_2.y,
+            -delta_uv_2.x * delta_pos_1.z - delta_uv_1.x * delta_pos_2.z,
+        ) * r;
+
+        tangents.push(tangent);
+        tangents.push(tangent);
+        tangents.push(tangent);
+
+        bitangents.push(bitangent);
+        bitangents.push(bitangent);
+        bitangents.push(bitangent);
+    }
+
+    (tangents, bitangents)
+}
+
+fn bundle_from_source(source: Vec<f32>) -> Vec<f32> {
+    let mut data = vec![];
+
+    let mut verticles = vec![];
+    let mut normals = vec![];
+    let mut texture_coords = vec![];
+
+    for result in source.chunks(8) {
+        verticles.push(glm::vec3(result[0], result[1], result[2]));
+        normals.push(glm::vec3(result[3], result[4], result[5]));
+        texture_coords.push(glm::vec2(result[6], result[7]));
+    }
+
+    let (tangents, bitangents) = compute_tangent_without_indicies(&verticles, &texture_coords);
+
+    use itertools::izip;
+    for (v, n, uv, t, b) in izip!(verticles, normals, texture_coords, tangents, bitangents) {
+        data.append(&mut (v as glm::Vec3).as_mut_slice().to_vec());
+        data.append(&mut (n as glm::Vec3).as_mut_slice().to_vec());
+        data.append(&mut (uv as glm::Vec2).as_mut_slice().to_vec());
+        data.append(&mut (t as glm::Vec3).as_mut_slice().to_vec());
+        data.append(&mut (b as glm::Vec3).as_mut_slice().to_vec());
+    }
+
+    data
+}
+
 /* primitives */
 pub fn build_cube<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> Model<'a> {
+    let mut data = bundle_from_source(CUBE.to_vec());
+
     create(
         &gl,
-        &CUBE.to_vec(),
+        &data,
         &[
             3, /* verticles */
             3, /* normals */
             2, /* texture coords */
+            3, /* t */
+            3, /* b */
         ],
         textures,
     )
@@ -412,6 +491,7 @@ pub fn build_quad<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> M
 pub fn build_sphere<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> Model<'a> {
     // let (vertices, indices) = sphere::gen_sphere(1.0, 30, 30);
     let (vertices, indices) = sphere::build_isosphere();
+    // todo tangent and bitangent
 
     create_with_indices(
         &gl,

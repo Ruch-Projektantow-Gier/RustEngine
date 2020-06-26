@@ -75,9 +75,24 @@ fn main() {
     let mut gizmo = Gizmo::new();
     texture::Texture::init(&gl); // anisotropic
 
-    let diffuse_texture = Texture::from(&gl, "res/wall.jpg").expect("Cannot load texture");
-    let diffuse_texture2 = Texture::from(&gl, "res/dirt.png").expect("Cannot load texture");
-    let render_cube = primitives::build_cube(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
+    let diffuse_texture =
+        Texture::from(&gl, "res/test/brickwall.jpg").expect("Cannot load texture");
+    let specular_texture = Texture::from(
+        &gl,
+        "res/Brick_Wall_018_SD/Brick_Wall_018_ambientOcclusion.jpg",
+    )
+    .expect("Cannot load texture");
+    let normal_texture =
+        Texture::from(&gl, "res/test/brickwall_normal.jpg").expect("Cannot load texture");
+
+    let render_cube = primitives::build_cube(
+        &gl,
+        vec![
+            (&diffuse_texture, TextureKind::Diffuse),
+            // (&specular_texture, TextureKind::Specular),
+            (&normal_texture, TextureKind::Normal),
+        ],
+    );
     let render_pyramid = primitives::build_pyramid(&gl);
     let render_grid = primitives::build_grid(&gl, 30);
     let render_sphere =
@@ -187,8 +202,8 @@ fn main() {
 
     // Cubes
     let target_cube = TransformComponent::new(
-        glm::vec3(1., 0.5, 0.),
-        glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
+        glm::vec3(0., 0.5, 0.),
+        glm::quat_identity(),
         glm::vec3(1., 1., 1.),
     );
 
@@ -455,7 +470,6 @@ fn main() {
         basic_shader.bind();
         basic_shader.setMat4(&camera.projection, "projection");
         basic_shader.setMat4(&camera.view, "view");
-        basic_shader.setVec3Float(&camera.position, "viewPos");
 
         // material
         basic_shader.setVec3Float(&glm::vec3(1.0, 0.5, 0.31), "material.ambient");
@@ -465,23 +479,21 @@ fn main() {
 
         // light
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");
-        basic_shader.setVec3Float(
-            &glm::vec3(light_color[0], light_color[1], light_color[2]),
-            "light.ambient",
-        );
+        basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "light.ambient");
         basic_shader.setVec3Float(
             &glm::vec3(light_color[0], light_color[1], light_color[2]),
             "light.diffuse",
         );
-        basic_shader.setVec3Float(&glm::vec3(1.0, 1.0, 1.0), "light.specular");
+        basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "light.specular");
 
-        let drawer = debug.setup_drawer(&camera.view, &camera.projection);
+        basic_shader.setVec3Float(&camera.position, "viewPos");
 
         for cube in &cubes {
             basic_shader.setMat4(&cube.borrow().mat4(), "model");
             render_cube.draw(&basic_shader);
         }
 
+        let drawer = debug.setup_drawer(&camera.view, &camera.projection);
         let floor = TransformComponent::new(
             glm::vec3(0., 0., 0.),
             glm::quat_identity(),
@@ -491,17 +503,17 @@ fn main() {
         render_cube.draw(&screen_shader);
 
         // sphere
-        unsafe {
-            gl.FrontFace(gl::CCW);
-        }
-
-        let sphere = TransformComponent::new(
-            glm::vec3(-1., 0.5, 0.),
-            glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
-            glm::vec3(0.5, 0.5, 0.5),
-        );
-        basic_shader.setMat4(&sphere.mat4(), "model");
-        render_sphere.draw(&screen_shader);
+        // unsafe {
+        //     gl.FrontFace(gl::CCW);
+        // }
+        //
+        // let sphere = TransformComponent::new(
+        //     glm::vec3(-1., 0.5, 0.),
+        //     glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
+        //     glm::vec3(0.5, 0.5, 0.5),
+        // );
+        // basic_shader.setMat4(&sphere.mat4(), "model");
+        // render_sphere.draw(&screen_shader);
 
         // let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
         // sphere_model *= glm::scaling(&glm::vec3(1., 1., 1.));
