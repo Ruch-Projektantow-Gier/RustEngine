@@ -33,7 +33,6 @@ out VS_OUTPUT {
 void main()
 {
     gl_Position = projection * view * model * vec4(Position, 1.0);
-
     OUT.TexCoords = TexCoords;
     OUT.FragPos = vec3(model * vec4(Position, 1.0));
 

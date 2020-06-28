@@ -334,15 +334,17 @@ impl Model<'_> {
             unsafe {
                 self.gl.ActiveTexture(gl::TEXTURE0 + i as u32);
 
-                match kind {
-                    TextureKind::Diffuse => diffuse_number += 1,
-                    TextureKind::Specular => specular_number += 1,
-                    TextureKind::Normal => normal_number += 1,
-                    TextureKind::Height => height_number += 1,
-                }
+                let number = match kind {
+                    TextureKind::Diffuse => &mut diffuse_number,
+                    TextureKind::Specular => &mut specular_number,
+                    TextureKind::Normal => &mut normal_number,
+                    TextureKind::Height => &mut height_number,
+                };
 
-                shader.setInt(i as i32, &format!("material.{}{}", kind.as_str(), i));
+                shader.setInt(i as i32, &format!("material.{}{}", kind.as_str(), number));
                 texture.bind();
+
+                *number += 1;
             }
         }
     }

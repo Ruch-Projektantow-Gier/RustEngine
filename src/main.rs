@@ -84,6 +84,8 @@ fn main() {
     .expect("Cannot load texture");
     let normal_texture =
         Texture::from(&gl, "res/test/brickwall_normal.jpg").expect("Cannot load texture");
+    let height_texture =
+        Texture::from(&gl, "res/test/brickwall_height.jpg").expect("Cannot load texture");
 
     let render_cube = primitives::build_cube(
         &gl,
@@ -91,6 +93,7 @@ fn main() {
             (&diffuse_texture, TextureKind::Diffuse),
             // (&specular_texture, TextureKind::Specular),
             (&normal_texture, TextureKind::Normal),
+            // (&height_texture, TextureKind::Height),
         ],
         1.0,
         1.0,
@@ -102,6 +105,7 @@ fn main() {
             (&diffuse_texture, TextureKind::Diffuse),
             // (&specular_texture, TextureKind::Specular),
             (&normal_texture, TextureKind::Normal),
+            (&height_texture, TextureKind::Height),
         ],
         5.0,
         5.0,
@@ -501,6 +505,7 @@ fn main() {
         basic_shader.setVec3Float(&glm::vec3(1.0, 0.5, 0.31), "material.diffuse");
         basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "material.specular");
         basic_shader.setFloat(32.0, "material.shininess");
+        basic_shader.setFloat(0.1, "height_scale");
 
         // light
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");
