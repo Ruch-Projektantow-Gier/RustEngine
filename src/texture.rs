@@ -74,6 +74,17 @@ impl Texture {
                 gl::LINEAR as gl::types::GLint,
             );
 
+            gl.TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::CLAMP_TO_EDGE as gl::types::GLint,
+            );
+            gl.TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::CLAMP_TO_EDGE as gl::types::GLint,
+            );
+
             gl.BindTexture(gl::TEXTURE_2D, 0);
         }
 

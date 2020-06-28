@@ -512,7 +512,7 @@ fn main() {
         basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "material.specular");
         basic_shader.setFloat(32.0, "material.shininess");
         // basic_shader.setFloat(0.015, "height_scale");
-        basic_shader.setFloat(0.04, "height_scale");
+        basic_shader.setFloat(0.015, "height_scale");
 
         // light
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");
