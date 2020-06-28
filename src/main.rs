@@ -99,17 +99,6 @@ fn main() {
         1.0,
     );
 
-    let render_cube_big = primitives::build_cube(
-        &gl,
-        vec![
-            (&diffuse_texture, TextureKind::Diffuse),
-            // (&specular_texture, TextureKind::Specular),
-            (&normal_texture, TextureKind::Normal),
-        ],
-        5.0,
-        5.0,
-    );
-
     let render_pyramid = primitives::build_pyramid(&gl);
     let render_grid = primitives::build_grid(&gl, 30);
     let render_sphere =
@@ -150,10 +139,31 @@ fn main() {
 
     // Framebuffer
     let mut fbo: GlInt = 0;
-    let screen_texture = Texture::new(&gl, camera.screen_width, camera.screen_height);
+    let screen_texture_multisampled =
+        Texture::new_multisampled(&gl, camera.screen_width, camera.screen_height, 4);
+
     unsafe {
         gl.GenFramebuffers(1, &mut fbo);
         gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
+
+        gl.FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D_MULTISAMPLE,
+            screen_texture_multisampled.id,
+            0,
+        );
+
+        gl.BindFramebuffer(gl::FRAMEBUFFER, 0); // Added by me
+    }
+
+    // Framebuffer for postprocessing
+    let mut fbo_postprocesing: GlInt = 0;
+    let screen_texture = Texture::new(&gl, camera.screen_width, camera.screen_height);
+
+    unsafe {
+        gl.GenFramebuffers(1, &mut fbo_postprocesing);
+        gl.BindFramebuffer(gl::FRAMEBUFFER, fbo_postprocesing);
 
         gl.FramebufferTexture2D(
             gl::FRAMEBUFFER,
@@ -172,8 +182,9 @@ fn main() {
         gl.GenRenderbuffers(1, &mut rbo);
         gl.BindRenderbuffer(gl::RENDERBUFFER, rbo);
 
-        gl.RenderbufferStorage(
+        gl.RenderbufferStorageMultisample(
             gl::RENDERBUFFER,
+            4,
             gl::DEPTH24_STENCIL8,
             camera.screen_width as gl::types::GLint,
             camera.screen_height as gl::types::GLint,
@@ -198,6 +209,13 @@ fn main() {
         gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
         if gl.CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
             println!("Framebuffer is not complete!")
+        }
+        gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
+
+        // and postprocessing
+        gl.BindFramebuffer(gl::FRAMEBUFFER, fbo_postprocesing);
+        if gl.CheckFramebufferStatus(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE {
+            println!("Framebuffer postprocessing is not complete!")
         }
         gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
     }
@@ -458,15 +476,17 @@ fn main() {
         let alpha: f32 = lag / s_per_update;
 
         // ************************* RENDERING **********************8**
+        let bg = utilities::color_from_rgba(172, 196, 191, 1.);
+
         unsafe {
+            gl.ClearColor(bg.x, bg.y, bg.z, bg.w);
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
         // 1. Drawing on added offscreen framebuffer (with depth and stencil)
         unsafe {
             gl.BindFramebuffer(gl::FRAMEBUFFER, fbo);
-            // gl.ClearColor(0.1, 0.1, 0.1, 1.0);
-            let bg = utilities::color_from_rgba(172, 196, 191, 1.);
+
             gl.ClearColor(bg.x, bg.y, bg.z, bg.w);
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl.Enable(gl::DEPTH_TEST);
@@ -505,7 +525,6 @@ fn main() {
             "light.diffuse",
         );
         basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "light.specular");
-
         basic_shader.setVec3Float(&camera.position, "viewPos");
 
         for cube in &cubes {
@@ -583,6 +602,21 @@ fn main() {
 
         // 2. Clear main framebuffer
         unsafe {
+            gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
+            gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fbo_postprocesing);
+            gl.BlitFramebuffer(
+                0,
+                0,
+                camera.screen_width as gl::types::GLint,
+                camera.screen_height as gl::types::GLint,
+                0,
+                0,
+                camera.screen_width as gl::types::GLint,
+                camera.screen_height as gl::types::GLint,
+                gl::COLOR_BUFFER_BIT,
+                gl::NEAREST,
+            );
+
             gl.BindFramebuffer(gl::FRAMEBUFFER, 0);
             gl.ClearColor(1., 1., 1., 1.);
             gl.Clear(gl::COLOR_BUFFER_BIT);

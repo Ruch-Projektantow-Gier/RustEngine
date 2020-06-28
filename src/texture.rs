@@ -82,14 +82,35 @@ impl Texture {
         }
     }
 
+    pub fn new_multisampled(gl: &gl::GlPtr, width: u32, height: u32, samples: u32) -> Texture {
+        let mut texture_id: u32 = 0;
+
+        unsafe {
+            gl.GenTextures(1, &mut texture_id);
+            gl.BindTexture(gl::TEXTURE_2D_MULTISAMPLE, texture_id);
+
+            gl.TexImage2DMultisample(
+                gl::TEXTURE_2D_MULTISAMPLE,
+                samples as gl::types::GLsizei,
+                gl::RGB,
+                width as gl::types::GLint,
+                height as gl::types::GLint,
+                gl::TRUE,
+            );
+
+            gl.BindTexture(gl::TEXTURE_2D_MULTISAMPLE, 0);
+        }
+
+        Texture {
+            gl: gl.clone(),
+            id: texture_id,
+        }
+    }
+
     pub fn from<P>(gl: &gl::GlPtr, path: P) -> Option<Texture>
     where
         P: AsRef<Path> + std::convert::AsRef<std::path::Path>,
     {
-        unsafe {
-            stb_image::stb_image::bindgen::stbi_set_flip_vertically_on_load(true as i32);
-        }
-
         let texture_load_result = stb_image::image::load(path);
         let mut texture_id: u32 = 0;
 
@@ -132,6 +153,8 @@ impl Texture {
     }
 
     pub fn bind(&self) {
+        // todo multisampled?
+
         unsafe {
             self.gl.BindTexture(gl::TEXTURE_2D, self.id);
 
