@@ -92,7 +92,32 @@ fn main() {
             // (&specular_texture, TextureKind::Specular),
             (&normal_texture, TextureKind::Normal),
         ],
+        1.0,
+        1.0,
     );
+
+    let render_cube_big = primitives::build_cube(
+        &gl,
+        vec![
+            (&diffuse_texture, TextureKind::Diffuse),
+            // (&specular_texture, TextureKind::Specular),
+            (&normal_texture, TextureKind::Normal),
+        ],
+        5.0,
+        5.0,
+    );
+
+    let render_cube_big = primitives::build_cube(
+        &gl,
+        vec![
+            (&diffuse_texture, TextureKind::Diffuse),
+            // (&specular_texture, TextureKind::Specular),
+            (&normal_texture, TextureKind::Normal),
+        ],
+        5.0,
+        5.0,
+    );
+
     let render_pyramid = primitives::build_pyramid(&gl);
     let render_grid = primitives::build_grid(&gl, 30);
     let render_sphere =
@@ -203,7 +228,7 @@ fn main() {
     // Cubes
     let target_cube = TransformComponent::new(
         glm::vec3(0., 0.5, 0.),
-        glm::quat_identity(),
+        glm::quat_angle_axis(glm::half_pi(), &glm::vec3(1., 0., 0.)),
         glm::vec3(1., 1., 1.),
     );
 
@@ -500,7 +525,7 @@ fn main() {
             glm::vec3(5.0, 0.1, 5.0),
         );
         basic_shader.setMat4(&floor.mat4(), "model");
-        render_cube.draw(&screen_shader);
+        render_cube_big.draw(&screen_shader);
 
         // sphere
         // unsafe {

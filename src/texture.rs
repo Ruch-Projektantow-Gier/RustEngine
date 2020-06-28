@@ -115,34 +115,6 @@ impl Texture {
                     );
                     gl.GenerateMipmap(gl::TEXTURE_2D);
 
-                    gl.TexParameterf(
-                        gl::TEXTURE_2D,
-                        gl::TEXTURE_MAX_ANISOTROPY_EXT,
-                        MAX_TEXTURE_FILTERING,
-                    );
-
-                    // gl.TexParameteri(
-                    //     gl::TEXTURE_2D,
-                    //     gl::TEXTURE_WRAP_S,
-                    //     gl::MIRRORED_REPEAT as i32,
-                    // );
-                    // gl.TexParameteri(
-                    //     gl::TEXTURE_2D,
-                    //     gl::TEXTURE_WRAP_T,
-                    //     gl::MIRRORED_REPEAT as i32,
-                    // );
-
-                    gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-                    gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
-
-                    gl.TexParameteri(
-                        gl::TEXTURE_2D,
-                        gl::TEXTURE_MIN_FILTER,
-                        gl::LINEAR_MIPMAP_LINEAR as i32,
-                    );
-
-                    gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
                     gl.BindTexture(gl::TEXTURE_2D, 0);
                 }
 
@@ -158,6 +130,26 @@ impl Texture {
     pub fn bind(&self) {
         unsafe {
             self.gl.BindTexture(gl::TEXTURE_2D, self.id);
+
+            // Parameters to override
+            self.gl.TexParameterf(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MAX_ANISOTROPY_EXT,
+                MAX_TEXTURE_FILTERING,
+            );
+            //
+            self.gl
+                .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            self.gl
+                .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+
+            // self.gl.TexParameteri(
+            //     gl::TEXTURE_2D,
+            //     gl::TEXTURE_MIN_FILTER,
+            //     gl::LINEAR_MIPMAP_LINEAR as i32,
+            // );
+            // self.gl
+            //     .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         }
     }
 }

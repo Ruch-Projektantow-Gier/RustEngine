@@ -68,6 +68,21 @@ pub static CUBE: [f32; 288] = [
     -0.5, 0.5, -0.5, 0., 1., 0., 0.0, 1.0, // top-left
 ];
 
+fn scale_uv(verts: &Vec<f32>, width: f32, height: f32) -> Vec<f32> {
+    verts
+        .chunks(8)
+        .map(|chunk| {
+            let mut chunk = chunk.to_vec();
+
+            chunk[6] *= width;
+            chunk[7] *= height;
+
+            chunk
+        })
+        .flatten()
+        .collect()
+}
+
 pub type TextureAttachment<'a> = (&'a Texture, TextureKind);
 
 pub struct Model<'a> {
@@ -459,8 +474,14 @@ fn bundle_from_source(source: Vec<f32>) -> Vec<f32> {
 }
 
 /* primitives */
-pub fn build_cube<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> Model<'a> {
-    let mut data = bundle_from_source(CUBE.to_vec());
+pub fn build_cube<'a>(
+    gl: &gl::GlPtr,
+    textures: Vec<TextureAttachment<'a>>,
+    scale_x: f32,
+    scale_y: f32,
+) -> Model<'a> {
+    let cube = scale_uv(&CUBE.to_vec(), scale_x, scale_y);
+    let data = bundle_from_source(cube);
 
     create(
         &gl,
