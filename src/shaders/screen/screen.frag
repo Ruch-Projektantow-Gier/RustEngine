@@ -20,6 +20,8 @@ void main()
     float rf2_1 = rf * rf + 1.0;
     float e = 1.0 / (rf2_1 * rf2_1); // smooth
 
+    FragColor = texture(texture_diffuse1, IN.TexCoords);
+
     /**
         FXAA
     **/
@@ -30,7 +32,7 @@ void main()
     int u_showEdges = 0;
 
     float u_lumaThreshold = 0.45;
-    float u_mulReduce = 1.0 / 40.0;
+    float u_mulReduce = 1.0 / 20.0;
     float u_minReduce = 1.0 / 128.0;
     float u_maxSpan = 8.0;
 
@@ -57,6 +59,10 @@ void main()
     {
         // ... do no AA and return.
         FragColor = vec4(rgbM, 1.0);
+
+        // Output
+        FragColor = vec4(FragColor.rgb * e, FragColor.a);
+
         return;
     }
 

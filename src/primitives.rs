@@ -262,7 +262,13 @@ impl Model<'_> {
     }
 
     pub fn draw(&self, shader: &Program) {
-        self.bind_textures_to(&shader);
+        self.bind_textures_to(&shader, true);
+        self.raw_draw(gl::TRIANGLES);
+        self.unbind_textures_from(&shader);
+    }
+
+    pub fn draw_no_scaled(&self, shader: &Program) {
+        self.bind_textures_to(&shader, false);
         self.raw_draw(gl::TRIANGLES);
         self.unbind_textures_from(&shader);
     }
@@ -324,7 +330,7 @@ impl Model<'_> {
         }
     }
 
-    pub fn bind_textures_to(&self, shader: &Program) {
+    pub fn bind_textures_to(&self, shader: &Program, mipmap: bool) {
         let mut diffuse_number = 1;
         let mut specular_number = 1;
         let mut normal_number = 1;
@@ -361,11 +367,20 @@ impl Model<'_> {
                         gl::CLAMP_TO_EDGE as gl::types::GLint,
                     );
 
-                    self.gl.TexParameteri(
-                        gl::TEXTURE_2D,
-                        gl::TEXTURE_MIN_FILTER,
-                        gl::LINEAR_MIPMAP_NEAREST as gl::types::GLint,
-                    );
+                    if mipmap {
+                        self.gl.TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MIN_FILTER,
+                            gl::LINEAR_MIPMAP_NEAREST as gl::types::GLint,
+                        );
+                    } else {
+                        self.gl.TexParameteri(
+                            gl::TEXTURE_2D,
+                            gl::TEXTURE_MIN_FILTER,
+                            gl::LINEAR as gl::types::GLint,
+                        );
+                    }
+
                     self.gl.TexParameteri(
                         gl::TEXTURE_2D,
                         gl::TEXTURE_MAG_FILTER,

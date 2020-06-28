@@ -488,7 +488,8 @@ fn main() {
             gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl.Enable(gl::DEPTH_TEST);
 
-            gl.Enable(gl::CULL_FACE);
+            // gl.Enable(gl::CULL_FACE);
+            gl.Disable(gl::CULL_FACE); // Disable faceculling when drawing normal maps
             gl.FrontFace(gl::CW);
         }
 
@@ -629,7 +630,7 @@ fn main() {
             &glm::vec3(camera.screen_width as f32, camera.screen_height as f32, 0.),
             "resolution",
         );
-        render_quad.draw(&screen_shader);
+        render_quad.draw_no_scaled(&screen_shader);
 
         bold_font.render_with_shadow(
             &camera,

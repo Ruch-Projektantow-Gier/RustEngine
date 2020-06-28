@@ -61,29 +61,7 @@ impl Texture {
                 gl::UNSIGNED_BYTE,
                 std::ptr::null() as *const gl::types::GLvoid,
             );
-            gl.GenerateMipmap(gl::TEXTURE_2D);
-
-            gl.TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MIN_FILTER,
-                gl::LINEAR as gl::types::GLint,
-            );
-            gl.TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_MAG_FILTER,
-                gl::LINEAR as gl::types::GLint,
-            );
-
-            gl.TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_WRAP_S,
-                gl::CLAMP_TO_EDGE as gl::types::GLint,
-            );
-            gl.TexParameteri(
-                gl::TEXTURE_2D,
-                gl::TEXTURE_WRAP_T,
-                gl::CLAMP_TO_EDGE as gl::types::GLint,
-            );
+            // gl.GenerateMipmap(gl::TEXTURE_2D);
 
             gl.BindTexture(gl::TEXTURE_2D, 0);
         }

@@ -36,6 +36,7 @@ in VS_OUTPUT {
 out vec4 FragColor;
 
 uniform float height_scale;
+uniform vec3 viewPos;
 
 vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
 {
@@ -87,13 +88,14 @@ void main()
     vec2 texCoords = ParallaxMapping(IN.TexCoords, viewDir);
 
     if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
-        discard;
+    discard;
 
     // For normal mapping
     vec3 normal = texture(material.texture_normal1, texCoords).rgb;
     normal = normalize(normal * 2.0 - 1.0);
 
     vec4 color = texture(material.texture_diffuse1, texCoords);
+
 
     // ambient
     vec3 ambient  = light.ambient * color.rgb;
@@ -110,6 +112,7 @@ void main()
 //    vec3 specular = light.specular * spec;
 //
     FragColor = vec4(ambient + diffuse + specular, color.a);
+//    FragColor = texture(material.texture_diffuse1,texCoords);
 //    FragColor = texture(material.texture_height1,texCoords);
 //    FragColor = texture(material.texture_diffuse1,texCoords);
 }
