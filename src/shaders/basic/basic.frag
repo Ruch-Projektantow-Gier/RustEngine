@@ -48,11 +48,11 @@ void main()
 {
     // TexCoords
     vec3 viewDir = normalize(IN.TangentViewPos - IN.TangentFragPos);
-    vec2 texCoords = IN.TexCoords;
-//    vec2 texCoords = ParallaxMapping(IN.TexCoords, viewDir);
+//    vec2 texCoords = IN.TexCoords;
+    vec2 texCoords = ParallaxMapping(IN.TexCoords, viewDir);
 
-//    if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
-//        discard;
+    if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
+        discard;
 
     // For normal mapping
     vec3 normal = texture(material.texture_normal1, texCoords).rgb;
@@ -73,8 +73,8 @@ void main()
     float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
     //    vec3 specular = light.specular * spec * vec3(texture(material.texture_specular1, texCoords));
     vec3 specular = light.specular * spec;
-
+//
     FragColor = vec4(ambient + diffuse + specular, color.a);
-//    FragColor = texture(material.texture_specular1, IN.TexCoords);
+//    FragColor = texture(material.texture_height1,texCoords);
 }
 

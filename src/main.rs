@@ -93,22 +93,10 @@ fn main() {
             (&diffuse_texture, TextureKind::Diffuse),
             // (&specular_texture, TextureKind::Specular),
             (&normal_texture, TextureKind::Normal),
-            // (&height_texture, TextureKind::Height),
-        ],
-        1.0,
-        1.0,
-    );
-
-    let render_cube_big = primitives::build_cube(
-        &gl,
-        vec![
-            (&diffuse_texture, TextureKind::Diffuse),
-            // (&specular_texture, TextureKind::Specular),
-            (&normal_texture, TextureKind::Normal),
             (&height_texture, TextureKind::Height),
         ],
-        5.0,
-        5.0,
+        1.0,
+        1.0,
     );
 
     let render_cube_big = primitives::build_cube(
@@ -505,7 +493,7 @@ fn main() {
         basic_shader.setVec3Float(&glm::vec3(1.0, 0.5, 0.31), "material.diffuse");
         basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "material.specular");
         basic_shader.setFloat(32.0, "material.shininess");
-        basic_shader.setFloat(0.1, "height_scale");
+        basic_shader.setFloat(0.015, "height_scale");
 
         // light
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");
@@ -530,7 +518,7 @@ fn main() {
             glm::vec3(5.0, 0.1, 5.0),
         );
         basic_shader.setMat4(&floor.mat4(), "model");
-        render_cube_big.draw(&screen_shader);
+        render_cube.draw(&screen_shader);
 
         // sphere
         // unsafe {
