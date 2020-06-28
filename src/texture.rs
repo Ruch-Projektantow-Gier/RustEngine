@@ -61,6 +61,7 @@ impl Texture {
                 gl::UNSIGNED_BYTE,
                 std::ptr::null() as *const gl::types::GLvoid,
             );
+            gl.GenerateMipmap(gl::TEXTURE_2D);
 
             gl.TexParameteri(
                 gl::TEXTURE_2D,
@@ -158,25 +159,11 @@ impl Texture {
         unsafe {
             self.gl.BindTexture(gl::TEXTURE_2D, self.id);
 
-            // Parameters to override
             self.gl.TexParameterf(
                 gl::TEXTURE_2D,
                 gl::TEXTURE_MAX_ANISOTROPY_EXT,
                 MAX_TEXTURE_FILTERING,
             );
-            //
-            self.gl
-                .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-            self.gl
-                .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
-
-            // self.gl.TexParameteri(
-            //     gl::TEXTURE_2D,
-            //     gl::TEXTURE_MIN_FILTER,
-            //     gl::LINEAR_MIPMAP_LINEAR as i32,
-            // );
-            // self.gl
-            //     .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         }
     }
 }

@@ -3,7 +3,7 @@
 // Material
 struct Material {
     sampler2D texture_diffuse1;
-//    sampler2D texture_specular1;
+    sampler2D texture_specular1;
     sampler2D texture_normal1;
     sampler2D texture_height1;
 
@@ -48,7 +48,7 @@ vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
     // depth of current layer
     float currentLayerDepth = 0.0;
     // the amount to shift the texture coordinates per layer (from vector P)
-    vec2 P = viewDir.xy / viewDir.z * height_scale;
+    vec2 P = viewDir.xy  * height_scale;
     vec2 deltaTexCoords = P / numLayers;
 
     // get initial values
@@ -106,8 +106,8 @@ void main()
     // specular
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
-    //    vec3 specular = light.specular * spec * vec3(texture(material.texture_specular1, texCoords));
-    vec3 specular = light.specular * spec;
+    vec3 specular = light.specular * spec * vec3(texture(material.texture_specular1, texCoords));
+//    vec3 specular = light.specular * spec;
 //
     FragColor = vec4(ambient + diffuse + specular, color.a);
 //    FragColor = texture(material.texture_height1,texCoords);

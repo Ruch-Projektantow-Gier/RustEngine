@@ -77,11 +77,8 @@ fn main() {
 
     let diffuse_texture =
         Texture::from(&gl, "res/test/brickwall.jpg").expect("Cannot load texture");
-    let specular_texture = Texture::from(
-        &gl,
-        "res/Brick_Wall_018_SD/Brick_Wall_018_ambientOcclusion.jpg",
-    )
-    .expect("Cannot load texture");
+    let specular_texture =
+        Texture::from(&gl, "res/test/brickwall_specular.jpg").expect("Cannot load texture");
     let normal_texture =
         Texture::from(&gl, "res/test/brickwall_normal.jpg").expect("Cannot load texture");
     let height_texture =
@@ -91,7 +88,7 @@ fn main() {
         &gl,
         vec![
             (&diffuse_texture, TextureKind::Diffuse),
-            // (&specular_texture, TextureKind::Specular),
+            (&specular_texture, TextureKind::Specular),
             (&normal_texture, TextureKind::Normal),
             (&height_texture, TextureKind::Height),
         ],
@@ -515,7 +512,7 @@ fn main() {
         basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "material.specular");
         basic_shader.setFloat(32.0, "material.shininess");
         // basic_shader.setFloat(0.015, "height_scale");
-        basic_shader.setFloat(0.03, "height_scale");
+        basic_shader.setFloat(0.04, "height_scale");
 
         // light
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");

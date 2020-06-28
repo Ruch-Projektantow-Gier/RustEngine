@@ -344,6 +344,24 @@ impl Model<'_> {
                 shader.setInt(i as i32, &format!("material.{}{}", kind.as_str(), number));
                 texture.bind();
 
+                unsafe {
+                    self.gl
+                        .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+                    self.gl
+                        .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+
+                    self.gl.TexParameteri(
+                        gl::TEXTURE_2D,
+                        gl::TEXTURE_MIN_FILTER,
+                        gl::LINEAR_MIPMAP_LINEAR as gl::types::GLint,
+                    );
+                    self.gl.TexParameteri(
+                        gl::TEXTURE_2D,
+                        gl::TEXTURE_MAG_FILTER,
+                        gl::LINEAR as gl::types::GLint,
+                    );
+                }
+
                 *number += 1;
             }
         }
