@@ -86,6 +86,10 @@ impl Texture {
     where
         P: AsRef<Path> + std::convert::AsRef<std::path::Path>,
     {
+        unsafe {
+            stb_image::stb_image::bindgen::stbi_set_flip_vertically_on_load(true as i32);
+        }
+
         let texture_load_result = stb_image::image::load(path);
         let mut texture_id: u32 = 0;
 

@@ -226,7 +226,8 @@ fn main() {
 
     let light_cube = TransformComponent::new(
         glm::vec3(0., 2.0, 0.),
-        glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
+        // glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
+        glm::quat_identity(),
         glm::vec3(0.1, 0.1, 0.1),
     );
     let light_cube_ptr = Rc::new(RefCell::new(light_cube));
@@ -493,7 +494,8 @@ fn main() {
         basic_shader.setVec3Float(&glm::vec3(1.0, 0.5, 0.31), "material.diffuse");
         basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "material.specular");
         basic_shader.setFloat(32.0, "material.shininess");
-        basic_shader.setFloat(0.015, "height_scale");
+        // basic_shader.setFloat(0.015, "height_scale");
+        basic_shader.setFloat(0.03, "height_scale");
 
         // light
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");
