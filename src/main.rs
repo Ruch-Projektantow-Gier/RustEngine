@@ -98,8 +98,15 @@ fn main() {
 
     let render_pyramid = primitives::build_pyramid(&gl);
     let render_grid = primitives::build_grid(&gl, 30);
-    let render_sphere =
-        primitives::build_sphere(&gl, vec![(&diffuse_texture, TextureKind::Diffuse)]);
+    let render_sphere = primitives::build_sphere(
+        &gl,
+        vec![
+            (&diffuse_texture, TextureKind::Diffuse),
+            (&specular_texture, TextureKind::Specular),
+            (&normal_texture, TextureKind::Normal),
+            (&height_texture, TextureKind::Height),
+        ],
+    );
 
     /////////////////////////////////////
 
@@ -513,7 +520,7 @@ fn main() {
         basic_shader.setVec3Float(&glm::vec3(0.5, 0.5, 0.5), "material.specular");
         basic_shader.setFloat(32.0, "material.shininess");
         // basic_shader.setFloat(0.015, "height_scale");
-        basic_shader.setFloat(0.015, "height_scale");
+        basic_shader.setFloat(0.03, "height_scale");
 
         // light
         basic_shader.setVec3Float(&light_cube_ptr.borrow().position, "light.position");
@@ -540,17 +547,19 @@ fn main() {
         render_cube.draw(&screen_shader);
 
         // sphere
-        // unsafe {
-        //     gl.FrontFace(gl::CCW);
-        // }
-        //
-        // let sphere = TransformComponent::new(
-        //     glm::vec3(-1., 0.5, 0.),
-        //     glm::quat_look_at(&glm::vec3(1., 0., 0.), &glm::vec3(0., 1., 0.)),
-        //     glm::vec3(0.5, 0.5, 0.5),
-        // );
-        // basic_shader.setMat4(&sphere.mat4(), "model");
-        // render_sphere.draw(&screen_shader);
+        unsafe {
+            gl.FrontFace(gl::CCW);
+        }
+
+        let sphere = TransformComponent::new(
+            glm::vec3(-2., 0.5, 0.),
+            // glm::quat_angle_axis(glm::half_pi(), &glm::vec3(0., 0., 0.)),
+            glm::quat_identity(),
+            glm::vec3(0.5, 0.5, 0.5),
+        );
+        basic_shader.setMat4(&sphere.mat4(), "model");
+        render_sphere.draw(&screen_shader);
+        // render_sphere.draw_mesh(1.5);
 
         // let mut sphere_model = glm::translate(&glm::one(), &glm::vec3(0., 0., 0.));
         // sphere_model *= glm::scaling(&glm::vec3(1., 1., 1.));

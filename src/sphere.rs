@@ -201,7 +201,7 @@ pub fn isosahedron_vertices() -> Vec<f32> {
     vertices.to_vec()
 }
 
-pub fn build_isosphere() -> (Vec<f32>, Vec<u32>) {
+pub fn build_isosphere() -> ((Vec<f32>, Vec<f32>, Vec<f32>), Vec<u32>) {
     let s_step = 186. / 2048.; // horizontal texture step
     let t_step = 322. / 1024.; // vertical texture step
 
@@ -368,23 +368,24 @@ pub fn build_isosphere() -> (Vec<f32>, Vec<u32>) {
     // subdivision
     let mut result = (out_vertices, out_normals, out_tex_coords, out_indices);
 
-    for i in 0..3 {
+    for _ in 0..3 {
         let (out_vertices, _, out_tex_coords, out_indices) = result;
         result = subdivide(out_vertices, out_tex_coords, out_indices);
     }
 
     let (out_vertices, out_normals, out_tex_coords, out_indices) = result;
-    let bundle = bundle(out_vertices, out_normals, out_tex_coords);
-    (bundle, out_indices)
+
+    // let bundle = bundle(out_vertices, out_normals, out_tex_coords);
+    ((out_vertices, out_normals, out_tex_coords), out_indices)
 }
 
-fn bundle(vertices: Vec<f32>, normals: Vec<f32>, text_coords: Vec<f32>) -> Vec<f32> {
+pub fn bundle(vertices: Vec<f32>, normals: Vec<f32>, text_coords: Vec<f32>) -> Vec<f32> {
     let mut result = vec![];
 
     let mut i = 0;
     let mut j = 0;
 
-    while i < vertices.len() {
+    while i < vertices.len() && j < text_coords.len() {
         result.push(vertices[i]);
         result.push(vertices[i + 1]);
         result.push(vertices[i + 2]);

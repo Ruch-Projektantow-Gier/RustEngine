@@ -4,6 +4,8 @@ use crate::texture;
 use crate::texture::{Texture, TextureKind};
 use gl;
 use itertools::{zip_eq, Itertools};
+use std::borrow::Borrow;
+use std::cmp::max;
 use std::ffi::*;
 
 #[path = "shader.rs"]
@@ -351,21 +353,21 @@ impl Model<'_> {
                 texture.bind();
 
                 unsafe {
-                    // self.gl
-                    //     .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-                    // self.gl
-                    //     .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+                    self.gl
+                        .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+                    self.gl
+                        .TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
 
-                    self.gl.TexParameteri(
-                        gl::TEXTURE_2D,
-                        gl::TEXTURE_WRAP_S,
-                        gl::CLAMP_TO_EDGE as gl::types::GLint,
-                    );
-                    self.gl.TexParameteri(
-                        gl::TEXTURE_2D,
-                        gl::TEXTURE_WRAP_T,
-                        gl::CLAMP_TO_EDGE as gl::types::GLint,
-                    );
+                    // self.gl.TexParameteri(
+                    //     gl::TEXTURE_2D,
+                    //     gl::TEXTURE_WRAP_S,
+                    //     gl::CLAMP_TO_EDGE as gl::types::GLint,
+                    // );
+                    // self.gl.TexParameteri(
+                    //     gl::TEXTURE_2D,
+                    //     gl::TEXTURE_WRAP_T,
+                    //     gl::CLAMP_TO_EDGE as gl::types::GLint,
+                    // );
 
                     if mipmap {
                         self.gl.TexParameteri(
@@ -421,17 +423,24 @@ pub fn compute_tangent(
         let uv1 = &uvs[index[1] as usize];
         let uv2 = &uvs[index[2] as usize];
 
-        // Edges of the triangle : position delta
-        let delta_pos_1 = v1 - v0;
+        let delta_pos_1 = v1 - v0; // edge
         let delta_pos_2 = v2 - v0;
-
-        // UV delta
-        let delta_uv_1 = uv1 - uv0;
+        let delta_uv_1 = uv1 - uv0; //
         let delta_uv_2 = uv2 - uv0;
 
-        let r = 1.0 / (delta_uv_1.x * delta_uv_2.y - delta_uv_1.y * delta_uv_2.x);
-        let tangent = (delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y) * r;
-        let bitangent = (delta_pos_2 * delta_uv_1.x - delta_pos_1 * delta_uv_2.x) * r;
+        let r = 1.0 / (delta_uv_1.x * delta_uv_2.y - delta_uv_2.x * delta_uv_1.y);
+
+        let tangent = glm::vec3(
+            delta_uv_2.y * delta_pos_1.x - delta_uv_1.y * delta_pos_2.x,
+            delta_uv_2.y * delta_pos_1.y - delta_uv_1.y * delta_pos_2.y,
+            delta_uv_2.y * delta_pos_1.z - delta_uv_1.y * delta_pos_2.z,
+        ) * r;
+
+        let bitangent = glm::vec3(
+            -delta_uv_2.x * delta_pos_1.x - delta_uv_1.x * delta_pos_2.x,
+            -delta_uv_2.x * delta_pos_1.y - delta_uv_1.x * delta_pos_2.y,
+            -delta_uv_2.x * delta_pos_1.z - delta_uv_1.x * delta_pos_2.z,
+        ) * r;
 
         tangents.push(tangent);
         tangents.push(tangent);
@@ -519,6 +528,33 @@ fn bundle_from_source(source: Vec<f32>) -> Vec<f32> {
     data
 }
 
+fn bundle_from_source_indices(source: Vec<f32>, indices: &Vec<u32>) -> Vec<f32> {
+    let mut data = vec![];
+
+    let mut verticles = vec![];
+    let mut normals = vec![];
+    let mut texture_coords = vec![];
+
+    for result in source.chunks(8) {
+        verticles.push(glm::vec3(result[0], result[1], result[2]));
+        normals.push(glm::vec3(result[3], result[4], result[5]));
+        texture_coords.push(glm::vec2(result[6], result[7]));
+    }
+
+    let (tangents, bitangents) = compute_tangent(&indices, &verticles, &texture_coords);
+
+    use itertools::izip;
+    for (v, n, uv, t, b) in izip!(verticles, normals, texture_coords, tangents, bitangents) {
+        data.append(&mut (v as glm::Vec3).as_mut_slice().to_vec());
+        data.append(&mut (n as glm::Vec3).as_mut_slice().to_vec());
+        data.append(&mut (uv as glm::Vec2).as_mut_slice().to_vec());
+        data.append(&mut (t as glm::Vec3).as_mut_slice().to_vec());
+        data.append(&mut (b as glm::Vec3).as_mut_slice().to_vec());
+    }
+
+    data
+}
+
 /* primitives */
 pub fn build_cube<'a>(
     gl: &gl::GlPtr,
@@ -557,17 +593,63 @@ pub fn build_quad<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> M
 
 pub fn build_sphere<'a>(gl: &gl::GlPtr, textures: Vec<TextureAttachment<'a>>) -> Model<'a> {
     // let (vertices, indices) = sphere::gen_sphere(1.0, 30, 30);
-    let (vertices, indices) = sphere::build_isosphere();
-    // todo tangent and bitangent
+    let ((vertices, _, _), indices) = sphere::build_isosphere();
+
+    let mut normals = vec![];
+    let mut tex_coords = vec![];
+
+    // todo https://mft-dev.dk/uv-mapping-sphere/
+    // you can iterate indices per 8 as well
+    vertices.chunks(3).for_each(|chunk| {
+        let vec = chunk.to_vec();
+
+        let x = *vec.get(0).unwrap();
+        let y = *vec.get(1).unwrap();
+        let z = *vec.get(2).unwrap();
+
+        let test = glm::vec3(x, y, z).normalize();
+
+        use crate::glm::RealField;
+        let u: f32 = f32::clamp(
+            (test.z.atan2(test.x) + f32::pi()) / (2. * f32::pi()),
+            0.0,
+            1.0,
+        );
+        let v: f32 = f32::clamp((test.y.asin() / f32::pi()) + 0.5, 0.0, 1.0);
+
+        // let u: f32 = ((test.x / test.z).atan() + f32::pi()) / (2. * f32::pi());
+        // let v: f32 = (-test.y.asin() + f32::pi() / 2.) / f32::pi();
+
+        // let m = 2. * (x.powi(2) + y.powi(2) + (z+1.).powi(2)).sqrt();
+        // let u = (x/m) + 0.5;
+        // let v = (y/m) + 0.5;
+
+        tex_coords.push(u);
+        tex_coords.push(v);
+
+        // normals
+        normals.push(test.x);
+        normals.push(test.y);
+        normals.push(test.z);
+    });
+
+    println!("{}", vertices.len());
+    println!("{}", normals.len());
+    // assert_eq!(t1.len(), tex_coords.len());
+
+    let bundle = sphere::bundle(vertices, normals, tex_coords);
+    let data = bundle_from_source_indices(bundle, &indices);
 
     create_with_indices(
         &gl,
-        &vertices,
+        &data,
         &indices,
         &[
             3, /* verticles */
             3, /* normals */
             2, /* texture coords */
+            3, /* t */
+            3, /* b */
         ],
         textures,
     )
