@@ -20,17 +20,24 @@ pub struct Cube {
 }
 
 pub struct Ray {
-    origin: Vec3f, // min = origin - HALF_CUBE, max = origin + HALF_CUBE
-    inv_dir: Vec3f,
+    pub origin: Vec3f, // min = origin - HALF_CUBE, max = origin + HALF_CUBE
+    pub inv_dir: Vec3f,
+    pub dir: Vec3f,
 }
 
 impl Ray {
     pub fn new(origin: &Vec3f, dir: &Vec3f) -> Ray {
         Ray {
             origin: origin.clone(),
+            dir: dir.clone(),
             inv_dir: invert_vector(dir),
         }
     }
+}
+
+pub struct Line2D {
+    pub from: glm::Vec2,
+    pub to: glm::Vec2,
 }
 
 #[derive(Copy, Clone)]
