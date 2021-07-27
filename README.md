@@ -1,5 +1,5 @@
-# Rust Engine
-### Author Maciej Olejnik <linkedin.com/in/maciejolej>
+## Rust Engine
+Author Maciej Olejnik <[linkedin.com/in/maciejolej](linkedin.com/in/maciejolej)>
 
 ![screen1](https://user-images.githubusercontent.com/1496580/127185225-b5c96c37-cb1c-42c7-af2a-a970cc838a1a.png)
 
